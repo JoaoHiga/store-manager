@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.storemanager</groupId>
+    <artifactId>store-manager</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>store-manager</name>
+    <description>Inventory management app for a family cellphone shop</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <spring-boot.version>3.3.4</spring-boot.version>
+        <assertj.version>3.26.3</assertj.version>
+    </properties>
+
+    <!--
+        No spring-boot-starter-parent inheritance on purpose: the "application"
+        module MUST end up with zero Spring dependency on its classpath to make
+        the Hexagonal boundary build-enforced (see design.md). Importing the
+        Spring Boot BOM here only manages versions for whichever module actually
+        declares those artifacts (infrastructure) — it adds nothing by itself.
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <modules>
+        <module>application</module>
+        <module>infrastructure</module>
+    </modules>
+
+    <!--
+        Explicit modern Surefire: the environment's Maven default resolved to
+        surefire 2.17 (pre-JUnit5), which silently reports "Tests run: 0"
+        instead of an error. Pinning 3.x here fixes JUnit 5 Jupiter discovery
+        for every module.
+    -->
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.13.0</version>
+                    <configuration>
+                        <!--
+                            Required for Spring MVC to resolve @PathVariable/@RequestParam
+                            names via reflection without an explicit name= attribute on
+                            every one. Without it: "Name for argument of type [...] not
+                            specified" at runtime, mapped to a confusing 400.
+                        -->
+                        <parameters>true</parameters>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

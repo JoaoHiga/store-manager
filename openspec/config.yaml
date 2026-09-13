@@ -1,0 +1,54 @@
+schema: spec-driven
+
+context: |
+  Product: inventory management web app for a family cellphone store.
+  Domain: cellphones, phone accessories, speakers, cases, tempered-glass
+    screen protectors, computer accessories, other related retail items.
+  Backend: Java 21 + Spring Boot (REST API), multi-module Maven, Hexagonal
+    Architecture (application: zero Spring deps; infrastructure: Spring/JPA/REST).
+  Frontend: React 19 SPA (Vite, plain JS), atomic design + container/presentational,
+    TanStack Query.
+  Testing: two separate workspace-level commands (see projects below) — no single
+    command covers both, so Strict TDD stays false per the sdd-init decision gate.
+
+strict_tdd: false
+# Two in-scope projects (backend, frontend), each with its own real test
+# command (mvn test / npm test), but no single workspace-level command covers
+# both together — the decision gate requires one command covering every
+# in-scope project for strict_tdd:true. In practice, every task since PR1 was
+# still implemented test-first (RED confirmed failing, then GREEN) as a
+# discipline choice, just not gated by this flag.
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    guidelines:
+      - Follow existing code patterns
+    tdd: true
+    test_command: "mvn clean test (backend) && npm test (frontend/)"
+  verify:
+    test_command: "mvn clean test"
+    build_command: "mvn -q -DskipTests package && (cd frontend && npm run build)"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
+
+projects:
+  - path: "."
+    stack: "Java 21 / Spring Boot / Maven (multi-module: application, infrastructure)"
+    test_command: "mvn clean test"
+    build_command: "mvn -q -DskipTests package"
+  - path: "frontend"
+    stack: "React 19 / Vite / JavaScript"
+    test_command: "npm test"
+    build_command: "npm run build"
