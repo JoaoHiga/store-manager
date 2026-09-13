@@ -131,6 +131,22 @@ class ProductControllerTest {
     }
 
     @Test
+    void rejectsUpdatingWithANonexistentCategoryWith400() throws Exception {
+        when(updateProductUseCase.execute(
+                        eq(1L), anyString(), any(), anyLong(), any(), any(), any(BigDecimal.class), anyInt()))
+                .thenThrow(new CategoryNotFoundException(999L));
+
+        mockMvc.perform(
+                        put("/api/products/1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        objectMapper.writeValueAsString(
+                                                new UpdateProductRequest(
+                                                        "iPhone 12", null, 999L, null, null, new BigDecimal("320"), 5))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void returns404WhenUpdatingANonexistentProduct() throws Exception {
         when(updateProductUseCase.execute(
                         eq(999L), anyString(), any(), anyLong(), any(), any(), any(BigDecimal.class), anyInt()))

@@ -15,7 +15,7 @@ class UpdateProductUseCaseTest {
     private final InMemoryProductRepository productRepository = new InMemoryProductRepository();
     private final CreateProductUseCase createProductUseCase =
             new CreateProductUseCase(productRepository, categoryRepository);
-    private final UpdateProductUseCase useCase = new UpdateProductUseCase(productRepository);
+    private final UpdateProductUseCase useCase = new UpdateProductUseCase(productRepository, categoryRepository);
 
     private Category category;
 
@@ -59,5 +59,17 @@ class UpdateProductUseCaseTest {
                                 useCase.execute(
                                         999L, "iPhone 12", null, category.getId(), null, null, new BigDecimal("320"), 5))
                 .isInstanceOf(ProductNotFoundException.class);
+    }
+
+    @Test
+    void rejectsUpdatingWithANonexistentCategory() {
+        Product created =
+                createProductUseCase.execute("iPhone 12", null, category.getId(), null, null, new BigDecimal("350"), 3);
+
+        assertThatThrownBy(
+                        () ->
+                                useCase.execute(
+                                        created.getId(), "iPhone 12", null, 999L, null, null, new BigDecimal("320"), 5))
+                .isInstanceOf(CategoryNotFoundException.class);
     }
 }
