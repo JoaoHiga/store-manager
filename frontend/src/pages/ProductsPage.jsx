@@ -26,30 +26,44 @@ export function ProductsPage() {
   });
 
   const [editingProduct, setEditingProduct] = useState(null);
+  const [mutationError, setMutationError] = useState(null);
 
   function invalidateProducts() {
     // Partial key: invalidates both the active and inactive list variants.
     queryClient.invalidateQueries({ queryKey: ['products'] });
   }
 
+  function handleMutationSuccess() {
+    invalidateProducts();
+    setMutationError(null);
+  }
+
+  function handleMutationError(mutationErr) {
+    setMutationError(mutationErr.message);
+  }
+
   const createMutation = useMutation({
     mutationFn: (product) => createProduct(product),
-    onSuccess: invalidateProducts,
+    onSuccess: handleMutationSuccess,
+    onError: handleMutationError,
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, product }) => updateProduct(id, product),
     onSuccess: () => {
-      invalidateProducts();
+      handleMutationSuccess();
       setEditingProduct(null);
     },
+    onError: handleMutationError,
   });
   const deactivateMutation = useMutation({
     mutationFn: (id) => deactivateProduct(id),
-    onSuccess: invalidateProducts,
+    onSuccess: handleMutationSuccess,
+    onError: handleMutationError,
   });
   const activateMutation = useMutation({
     mutationFn: (id) => activateProduct(id),
-    onSuccess: invalidateProducts,
+    onSuccess: handleMutationSuccess,
+    onError: handleMutationError,
   });
 
   function handleSubmit(values) {
@@ -80,6 +94,7 @@ export function ProductsPage() {
         onSubmit={handleSubmit}
         onCancel={editingProduct ? () => setEditingProduct(null) : undefined}
       />
+      {mutationError && <p role="alert">{mutationError}</p>}
       <label>
         <input
           type="checkbox"
