@@ -52,6 +52,9 @@ public final class Product {
         if (stockQuantity < 0) {
             throw new IllegalArgumentException("Product stockQuantity must not be negative");
         }
+        if (costPrice != null && costPrice.signum() < 0) {
+            throw new IllegalArgumentException("Product costPrice must not be negative");
+        }
         this.id = id;
         this.sku = sku;
         this.name = name;

@@ -70,4 +70,26 @@ class ProductRepositoryAdapterTest {
 
         assertThat(result).extracting(Product::getId).containsExactly(active.getId());
     }
+
+    @Test
+    void findsOnlyActiveProductsAcrossAllCategoriesWhenNoCategoryFilterIsGiven() {
+        Long otherCategoryId =
+                categoryJpaRepository.save(new CategoryJpaEntity(null, "Accesorios", null, Instant.now(), Instant.now()))
+                        .getId();
+        Product active =
+                adapter.save(
+                        Product.createNew("iPhone 12", null, categoryId, null, null, new BigDecimal("350"), 3, Instant.now()));
+        Product activeOther =
+                adapter.save(
+                        Product.createNew(
+                                "Funda", null, otherCategoryId, null, null, new BigDecimal("10"), 5, Instant.now()));
+        Product toDeactivate =
+                adapter.save(
+                        Product.createNew("iPhone 13", null, categoryId, null, null, new BigDecimal("400"), 2, Instant.now()));
+        adapter.save(toDeactivate.deactivated(Instant.now()));
+
+        var result = adapter.findByActive(true);
+
+        assertThat(result).extracting(Product::getId).containsExactlyInAnyOrder(active.getId(), activeOther.getId());
+    }
 }

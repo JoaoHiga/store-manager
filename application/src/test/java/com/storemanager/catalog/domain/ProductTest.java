@@ -57,6 +57,29 @@ class ProductTest {
     }
 
     @Test
+    void rejectsANegativeCostPrice() {
+        assertThatThrownBy(
+                        () ->
+                                Product.createNew(
+                                        "Cargador", null, CATEGORY_ID, null, new BigDecimal("-1"), new BigDecimal("10"),
+                                        1, Instant.now()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void allowsANullOrZeroCostPrice() {
+        Product nullCostPrice =
+                Product.createNew(
+                        "Cargador", null, CATEGORY_ID, null, null, new BigDecimal("10"), 1, Instant.now());
+        Product zeroCostPrice =
+                Product.createNew(
+                        "Cargador", null, CATEGORY_ID, null, BigDecimal.ZERO, new BigDecimal("10"), 1, Instant.now());
+
+        assertThat(nullCostPrice.getCostPrice()).isNull();
+        assertThat(zeroCostPrice.getCostPrice()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
     void deactivatingSetsActiveFalseAndKeepsEverythingElse() {
         Instant createdAt = Instant.now();
         Product product =

@@ -57,6 +57,30 @@ class CategoryControllerTest {
     }
 
     @Test
+    void rejectsAnOverLengthNameWith400() throws Exception {
+        String tooLongName = "a".repeat(121);
+
+        mockMvc.perform(
+                        post("/api/categories")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(new CreateCategoryRequest(tooLongName, null))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsAnOverLengthDescriptionWith400() throws Exception {
+        String tooLongDescription = "a".repeat(501);
+
+        mockMvc.perform(
+                        post("/api/categories")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        objectMapper.writeValueAsString(
+                                                new CreateCategoryRequest("Celulares", tooLongDescription))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void rejectsADuplicateNameWith409() throws Exception {
         when(createCategoryUseCase.execute(anyString(), any()))
                 .thenThrow(new DuplicateCategoryNameException("Celulares"));

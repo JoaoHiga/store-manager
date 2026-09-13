@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ProductForm } from './ProductForm';
@@ -39,6 +39,24 @@ describe('ProductForm', () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent('El stock no puede ser negativo');
+  });
+
+  it('does not crash on a non-numeric sale price and still rejects it', async () => {
+    // Regression guard for a claimed NaN gap: type="number" inputs sanitize
+    // a non-numeric typed value to "" in the DOM before any JS validation
+    // runs, so the existing !values.salePrice check already catches this —
+    // no source change was needed, this just proves it stays that way.
+    const onSubmit = vi.fn();
+    render(<ProductForm categories={categories} onSubmit={onSubmit} />);
+
+    await userEvent.type(screen.getByLabelText('Nombre'), 'iPhone 12');
+    await userEvent.selectOptions(screen.getByLabelText('Categoría'), '1');
+    fireEvent.change(screen.getByLabelText('Precio de venta'), { target: { value: 'abc' } });
+    await userEvent.type(screen.getByLabelText('Stock'), '3');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('El precio de venta tiene que ser mayor a cero');
   });
 
   it('pre-fills the form and shows Cancelar when editing', () => {

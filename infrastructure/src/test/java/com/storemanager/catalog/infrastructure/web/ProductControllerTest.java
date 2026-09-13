@@ -81,6 +81,36 @@ class ProductControllerTest {
     }
 
     @Test
+    void rejectsANegativeCostPriceWith400() throws Exception {
+        String badJson =
+                "{\"name\":\"iPhone 12\",\"categoryId\":1,\"costPrice\":-1,\"salePrice\":350,\"stockQuantity\":3}";
+
+        mockMvc.perform(post("/api/products").contentType(MediaType.APPLICATION_JSON).content(badJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsAnOverLengthNameBrandOrDescriptionWith400() throws Exception {
+        String tooLongName = "a".repeat(161);
+        String badJson =
+                "{\"name\":\"" + tooLongName + "\",\"categoryId\":1,\"salePrice\":350,\"stockQuantity\":3}";
+
+        mockMvc.perform(post("/api/products").contentType(MediaType.APPLICATION_JSON).content(badJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsAnOverLengthDescriptionWith400() throws Exception {
+        String tooLongDescription = "a".repeat(1001);
+        String badJson =
+                "{\"name\":\"iPhone 12\",\"description\":\"" + tooLongDescription
+                        + "\",\"categoryId\":1,\"salePrice\":350,\"stockQuantity\":3}";
+
+        mockMvc.perform(post("/api/products").contentType(MediaType.APPLICATION_JSON).content(badJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void rejectsANonexistentCategoryWith400() throws Exception {
         when(createProductUseCase.execute(
                         anyString(), any(), anyLong(), any(), any(), any(BigDecimal.class), anyInt()))
@@ -128,6 +158,26 @@ class ProductControllerTest {
                                                 new UpdateProductRequest(
                                                         "iPhone 12", null, 1L, null, null, new BigDecimal("320"), 5))))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void rejectsUpdatingWithANegativeCostPriceWith400() throws Exception {
+        String badJson =
+                "{\"name\":\"iPhone 12\",\"categoryId\":1,\"costPrice\":-1,\"salePrice\":350,\"stockQuantity\":5}";
+
+        mockMvc.perform(put("/api/products/1").contentType(MediaType.APPLICATION_JSON).content(badJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsUpdatingWithAnOverLengthNameBrandOrDescriptionWith400() throws Exception {
+        String tooLongBrand = "a".repeat(81);
+        String badJson =
+                "{\"name\":\"iPhone 12\",\"categoryId\":1,\"brand\":\"" + tooLongBrand
+                        + "\",\"salePrice\":350,\"stockQuantity\":5}";
+
+        mockMvc.perform(put("/api/products/1").contentType(MediaType.APPLICATION_JSON).content(badJson))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

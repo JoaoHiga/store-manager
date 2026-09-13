@@ -81,6 +81,32 @@ describe('ProductsPage', () => {
     await waitFor(() => expect(catalogApi.deactivateProduct).toHaveBeenCalledWith(1));
   });
 
+  it('shows an error message when creating a product fails', async () => {
+    catalogApi.listProducts.mockResolvedValue([]);
+    catalogApi.createProduct.mockRejectedValue(new Error('El servidor rechazó la solicitud'));
+    renderPage();
+
+    await screen.findByText('No hay productos todavía.');
+
+    await userEvent.type(screen.getByLabelText('Nombre'), 'iPhone 12');
+    await userEvent.selectOptions(screen.getByLabelText('Categoría'), '1');
+    await userEvent.type(screen.getByLabelText('Precio de venta'), '350');
+    await userEvent.type(screen.getByLabelText('Stock'), '3');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('El servidor rechazó la solicitud');
+  });
+
+  it('shows an error message when deactivating a product fails', async () => {
+    catalogApi.listProducts.mockResolvedValue([product]);
+    catalogApi.deactivateProduct.mockRejectedValue(new Error('El servidor rechazó la solicitud'));
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Desactivar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('El servidor rechazó la solicitud');
+  });
+
   it('toggling "Ver productos inactivos" lists inactive products and lets you reactivate one', async () => {
     const inactiveProduct = { ...product, active: false };
     catalogApi.listProducts.mockResolvedValueOnce([]).mockResolvedValueOnce([inactiveProduct]);

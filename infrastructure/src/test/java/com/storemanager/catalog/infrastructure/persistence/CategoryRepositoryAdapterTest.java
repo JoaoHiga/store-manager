@@ -1,8 +1,10 @@
 package com.storemanager.catalog.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.storemanager.catalog.domain.Category;
+import com.storemanager.catalog.usecase.DuplicateCategoryNameException;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,5 +53,16 @@ class CategoryRepositoryAdapterTest {
     @Test
     void returnsEmptyWhenCategoryDoesNotExist() {
         assertThat(adapter().findByName("No existe")).isEmpty();
+    }
+
+    @Test
+    void savingTheSameNameTwiceThrowsDuplicateCategoryName() {
+        // Deterministic proxy for the concurrent case: the use case's
+        // findByName check-then-act can't be raced from a unit test, but the
+        // unique constraint this relies on fires identically either way.
+        adapter().save(Category.createNew("Celulares", null, Instant.now()));
+
+        assertThatThrownBy(() -> adapter().save(Category.createNew("Celulares", null, Instant.now())))
+                .isInstanceOf(DuplicateCategoryNameException.class);
     }
 }
