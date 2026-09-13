@@ -43,8 +43,9 @@ public class UseCaseConfiguration {
     }
 
     @Bean
-    public UpdateProductUseCase updateProductUseCase(ProductRepositoryPort productRepositoryPort) {
-        return new UpdateProductUseCase(productRepositoryPort);
+    public UpdateProductUseCase updateProductUseCase(
+            ProductRepositoryPort productRepositoryPort, CategoryRepositoryPort categoryRepositoryPort) {
+        return new UpdateProductUseCase(productRepositoryPort, categoryRepositoryPort);
     }
 
     @Bean
