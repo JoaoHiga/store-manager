@@ -35,9 +35,12 @@ export function createCategory({ name, description }) {
   });
 }
 
-export function listProducts({ categoryId } = {}) {
-  const query = categoryId ? `?categoryId=${categoryId}` : '';
-  return request(`/api/products${query}`);
+export function listProducts({ categoryId, active } = {}) {
+  const params = new URLSearchParams();
+  if (categoryId) params.set('categoryId', categoryId);
+  if (active !== undefined) params.set('active', active);
+  const query = params.toString();
+  return request(`/api/products${query ? `?${query}` : ''}`);
 }
 
 export function createProduct(product) {
@@ -56,6 +59,12 @@ export function updateProduct(id, product) {
 
 export function deactivateProduct(id) {
   return request(`/api/products/${id}/deactivate`, {
+    method: 'PATCH',
+  });
+}
+
+export function activateProduct(id) {
+  return request(`/api/products/${id}/activate`, {
     method: 'PATCH',
   });
 }

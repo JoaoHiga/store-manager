@@ -35,7 +35,7 @@ class ListProductsUseCaseTest {
                 createProductUseCase.execute("Funda", null, accessories.getId(), null, null, new BigDecimal("10"), 5);
         deactivateProductUseCase.execute(toDeactivate.getId());
 
-        var result = useCase.execute(null);
+        var result = useCase.execute(null, true);
 
         assertThat(result).extracting(Product::getId).containsExactly(active.getId());
     }
@@ -45,8 +45,19 @@ class ListProductsUseCaseTest {
         createProductUseCase.execute("iPhone 12", null, phones.getId(), null, null, new BigDecimal("350"), 1);
         createProductUseCase.execute("Funda", null, accessories.getId(), null, null, new BigDecimal("10"), 5);
 
-        var result = useCase.execute(accessories.getId());
+        var result = useCase.execute(accessories.getId(), true);
 
         assertThat(result).extracting(Product::getName).containsExactly("Funda");
+    }
+
+    @Test
+    void listsInactiveProductsWhenActiveIsFalse() {
+        Product toDeactivate =
+                createProductUseCase.execute("Funda", null, accessories.getId(), null, null, new BigDecimal("10"), 5);
+        deactivateProductUseCase.execute(toDeactivate.getId());
+
+        var result = useCase.execute(null, false);
+
+        assertThat(result).extracting(Product::getId).containsExactly(toDeactivate.getId());
     }
 }

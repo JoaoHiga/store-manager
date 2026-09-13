@@ -1,21 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { createProduct, deactivateProduct, listCategories, listProducts, updateProduct } from '../api/catalogApi';
+import {
+  activateProduct,
+  createProduct,
+  deactivateProduct,
+  listCategories,
+  listProducts,
+  updateProduct,
+} from '../api/catalogApi';
 import { ProductForm } from '../components/organisms/ProductForm';
 import { ProductList } from '../components/organisms/ProductList';
 
 export function ProductsPage() {
   const queryClient = useQueryClient();
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: listCategories });
+
+  const [showInactive, setShowInactive] = useState(false);
   const {
     data: products = [],
     isLoading,
     error,
-  } = useQuery({ queryKey: ['products'], queryFn: () => listProducts() });
+  } = useQuery({
+    queryKey: ['products', showInactive],
+    queryFn: () => listProducts({ active: !showInactive }),
+  });
 
   const [editingProduct, setEditingProduct] = useState(null);
 
   function invalidateProducts() {
+    // Partial key: invalidates both the active and inactive list variants.
     queryClient.invalidateQueries({ queryKey: ['products'] });
   }
 
@@ -32,6 +45,10 @@ export function ProductsPage() {
   });
   const deactivateMutation = useMutation({
     mutationFn: (id) => deactivateProduct(id),
+    onSuccess: invalidateProducts,
+  });
+  const activateMutation = useMutation({
+    mutationFn: (id) => activateProduct(id),
     onSuccess: invalidateProducts,
   });
 
@@ -63,11 +80,20 @@ export function ProductsPage() {
         onSubmit={handleSubmit}
         onCancel={editingProduct ? () => setEditingProduct(null) : undefined}
       />
+      <label>
+        <input
+          type="checkbox"
+          checked={showInactive}
+          onChange={(event) => setShowInactive(event.target.checked)}
+        />
+        Ver productos inactivos
+      </label>
       <ProductList
         products={products}
         categories={categories}
         onEdit={setEditingProduct}
         onDeactivate={(id) => deactivateMutation.mutate(id)}
+        onActivate={(id) => activateMutation.mutate(id)}
       />
     </section>
   );

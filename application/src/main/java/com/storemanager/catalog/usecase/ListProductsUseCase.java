@@ -12,11 +12,11 @@ public class ListProductsUseCase {
         this.productRepository = productRepository;
     }
 
-    /** {@code categoryId == null} lists every active product, regardless of category. */
-    public List<Product> execute(Long categoryId) {
+    /** {@code categoryId == null} lists across every category. {@code active} selects which set (default true). */
+    public List<Product> execute(Long categoryId, boolean active) {
         if (categoryId != null) {
-            return productRepository.findActiveByCategoryId(categoryId);
+            return productRepository.findByActiveAndCategoryId(active, categoryId);
         }
-        return productRepository.findAllActive();
+        return productRepository.findByActive(active);
     }
 }

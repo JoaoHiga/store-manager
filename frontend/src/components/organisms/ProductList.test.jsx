@@ -8,15 +8,28 @@ const products = [
   { id: 1, sku: 'PRD-000001', name: 'iPhone 12', categoryId: 1, salePrice: 350, stockQuantity: 3, active: true },
 ];
 
+function renderList(overrides = {}) {
+  return render(
+    <ProductList
+      products={products}
+      categories={categories}
+      onEdit={vi.fn()}
+      onDeactivate={vi.fn()}
+      onActivate={vi.fn()}
+      {...overrides}
+    />,
+  );
+}
+
 describe('ProductList', () => {
   it('shows a message when there are no products', () => {
-    render(<ProductList products={[]} categories={categories} onEdit={vi.fn()} onDeactivate={vi.fn()} />);
+    renderList({ products: [] });
 
     expect(screen.getByText('No hay productos todavía.')).toBeInTheDocument();
   });
 
   it('renders each product with its resolved category name', () => {
-    render(<ProductList products={products} categories={categories} onEdit={vi.fn()} onDeactivate={vi.fn()} />);
+    renderList();
 
     expect(screen.getByText('PRD-000001')).toBeInTheDocument();
     expect(screen.getByText('iPhone 12')).toBeInTheDocument();
@@ -25,7 +38,7 @@ describe('ProductList', () => {
 
   it('calls onEdit with the product when Editar is clicked', async () => {
     const onEdit = vi.fn();
-    render(<ProductList products={products} categories={categories} onEdit={onEdit} onDeactivate={vi.fn()} />);
+    renderList({ onEdit });
 
     await userEvent.click(screen.getByRole('button', { name: 'Editar' }));
 
@@ -34,17 +47,26 @@ describe('ProductList', () => {
 
   it('calls onDeactivate with the product id when Desactivar is clicked', async () => {
     const onDeactivate = vi.fn();
-    render(<ProductList products={products} categories={categories} onEdit={vi.fn()} onDeactivate={onDeactivate} />);
+    renderList({ onDeactivate });
 
     await userEvent.click(screen.getByRole('button', { name: 'Desactivar' }));
 
     expect(onDeactivate).toHaveBeenCalledWith(1);
   });
 
-  it('hides the Desactivar button for an already-inactive product', () => {
-    const inactive = [{ ...products[0], active: false }];
-    render(<ProductList products={inactive} categories={categories} onEdit={vi.fn()} onDeactivate={vi.fn()} />);
+  it('shows Reactivar instead of Desactivar for an inactive product', () => {
+    renderList({ products: [{ ...products[0], active: false }] });
 
     expect(screen.queryByRole('button', { name: 'Desactivar' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reactivar' })).toBeInTheDocument();
+  });
+
+  it('calls onActivate with the product id when Reactivar is clicked', async () => {
+    const onActivate = vi.fn();
+    renderList({ products: [{ ...products[0], active: false }], onActivate });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reactivar' }));
+
+    expect(onActivate).toHaveBeenCalledWith(1);
   });
 });

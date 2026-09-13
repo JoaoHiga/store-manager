@@ -123,6 +123,12 @@ public final class Product {
                 now);
     }
 
+    public Product activated(Instant now) {
+        return new Product(
+                id, sku, name, description, categoryId, brand, costPrice, salePrice, stockQuantity, true, createdAt,
+                now);
+    }
+
     public Long getId() {
         return id;
     }
