@@ -23,6 +23,7 @@ import com.storemanager.catalog.usecase.CreateProductUseCase;
 import com.storemanager.catalog.usecase.DeactivateProductUseCase;
 import com.storemanager.catalog.usecase.ListProductsUseCase;
 import com.storemanager.catalog.usecase.ProductNotFoundException;
+import com.storemanager.catalog.usecase.ReactivateProductUseCase;
 import com.storemanager.catalog.usecase.UpdateProductUseCase;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -44,6 +45,7 @@ class ProductControllerTest {
     @MockBean private ListProductsUseCase listProductsUseCase;
     @MockBean private UpdateProductUseCase updateProductUseCase;
     @MockBean private DeactivateProductUseCase deactivateProductUseCase;
+    @MockBean private ReactivateProductUseCase reactivateProductUseCase;
 
     private static Product sampleProduct(long id, boolean active) {
         Instant now = Instant.now();
@@ -95,12 +97,21 @@ class ProductControllerTest {
     }
 
     @Test
-    void listsProducts() throws Exception {
-        when(listProductsUseCase.execute(null)).thenReturn(List.of(sampleProduct(1L, true)));
+    void listsActiveProductsByDefault() throws Exception {
+        when(listProductsUseCase.execute(null, true)).thenReturn(List.of(sampleProduct(1L, true)));
 
         mockMvc.perform(get("/api/products"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)));
+    }
+
+    @Test
+    void listsInactiveProductsWhenRequested() throws Exception {
+        when(listProductsUseCase.execute(null, false)).thenReturn(List.of(sampleProduct(1L, false)));
+
+        mockMvc.perform(get("/api/products").param("active", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].active").value(false));
     }
 
     @Test
@@ -145,5 +156,17 @@ class ProductControllerTest {
         doThrow(new ProductNotFoundException(999L)).when(deactivateProductUseCase).execute(999L);
 
         mockMvc.perform(patch("/api/products/999/deactivate")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void reactivatesAProductAndReturns204() throws Exception {
+        mockMvc.perform(patch("/api/products/1/activate")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void returns404WhenReactivatingANonexistentProduct() throws Exception {
+        doThrow(new ProductNotFoundException(999L)).when(reactivateProductUseCase).execute(999L);
+
+        mockMvc.perform(patch("/api/products/999/activate")).andExpect(status().isNotFound());
     }
 }

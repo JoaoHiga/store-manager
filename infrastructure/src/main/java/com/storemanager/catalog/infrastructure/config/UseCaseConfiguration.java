@@ -7,6 +7,7 @@ import com.storemanager.catalog.usecase.CreateProductUseCase;
 import com.storemanager.catalog.usecase.DeactivateProductUseCase;
 import com.storemanager.catalog.usecase.ListCategoriesUseCase;
 import com.storemanager.catalog.usecase.ListProductsUseCase;
+import com.storemanager.catalog.usecase.ReactivateProductUseCase;
 import com.storemanager.catalog.usecase.UpdateProductUseCase;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -49,5 +50,10 @@ public class UseCaseConfiguration {
     @Bean
     public DeactivateProductUseCase deactivateProductUseCase(ProductRepositoryPort productRepositoryPort) {
         return new DeactivateProductUseCase(productRepositoryPort);
+    }
+
+    @Bean
+    public ReactivateProductUseCase reactivateProductUseCase(ProductRepositoryPort productRepositoryPort) {
+        return new ReactivateProductUseCase(productRepositoryPort);
     }
 }

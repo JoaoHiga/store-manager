@@ -80,4 +80,20 @@ describe('ProductsPage', () => {
 
     await waitFor(() => expect(catalogApi.deactivateProduct).toHaveBeenCalledWith(1));
   });
+
+  it('toggling "Ver productos inactivos" lists inactive products and lets you reactivate one', async () => {
+    const inactiveProduct = { ...product, active: false };
+    catalogApi.listProducts.mockResolvedValueOnce([]).mockResolvedValueOnce([inactiveProduct]);
+    catalogApi.activateProduct.mockResolvedValue(null);
+    renderPage();
+
+    await screen.findByText('No hay productos todavía.');
+
+    await userEvent.click(screen.getByLabelText('Ver productos inactivos'));
+
+    await waitFor(() => expect(catalogApi.listProducts).toHaveBeenCalledWith({ active: false }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Reactivar' }));
+
+    await waitFor(() => expect(catalogApi.activateProduct).toHaveBeenCalledWith(1));
+  });
 });

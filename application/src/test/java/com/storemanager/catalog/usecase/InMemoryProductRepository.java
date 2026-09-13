@@ -45,12 +45,15 @@ class InMemoryProductRepository implements ProductRepositoryPort {
     }
 
     @Override
-    public List<Product> findAllActive() {
-        return products.stream().filter(Product::isActive).toList();
+    public List<Product> findByActive(boolean active) {
+        return products.stream().filter(p -> p.isActive() == active).toList();
     }
 
     @Override
-    public List<Product> findActiveByCategoryId(Long categoryId) {
-        return products.stream().filter(Product::isActive).filter(p -> p.getCategoryId().equals(categoryId)).toList();
+    public List<Product> findByActiveAndCategoryId(boolean active, Long categoryId) {
+        return products.stream()
+                .filter(p -> p.isActive() == active)
+                .filter(p -> p.getCategoryId().equals(categoryId))
+                .toList();
     }
 }

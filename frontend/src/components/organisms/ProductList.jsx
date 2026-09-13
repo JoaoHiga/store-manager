@@ -2,7 +2,7 @@ import { Badge } from '../atoms/Badge';
 import { Button } from '../atoms/Button';
 import { PriceTag } from '../molecules/PriceTag';
 
-export function ProductList({ products, categories, onEdit, onDeactivate }) {
+export function ProductList({ products, categories, onEdit, onDeactivate, onActivate }) {
   if (products.length === 0) {
     return <p>No hay productos todavía.</p>;
   }
@@ -41,9 +41,13 @@ export function ProductList({ products, categories, onEdit, onDeactivate }) {
               <Button variant="secondary" onClick={() => onEdit(product)}>
                 Editar
               </Button>
-              {product.active && (
+              {product.active ? (
                 <Button variant="danger" onClick={() => onDeactivate(product.id)}>
                   Desactivar
+                </Button>
+              ) : (
+                <Button variant="primary" onClick={() => onActivate(product.id)}>
+                  Reactivar
                 </Button>
               )}
             </td>

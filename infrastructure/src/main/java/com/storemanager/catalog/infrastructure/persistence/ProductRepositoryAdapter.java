@@ -41,13 +41,13 @@ public class ProductRepositoryAdapter implements ProductRepositoryPort {
     }
 
     @Override
-    public List<Product> findAllActive() {
-        return jpaRepository.findByActiveTrue().stream().map(this::toDomain).toList();
+    public List<Product> findByActive(boolean active) {
+        return jpaRepository.findByActive(active).stream().map(this::toDomain).toList();
     }
 
     @Override
-    public List<Product> findActiveByCategoryId(Long categoryId) {
-        return jpaRepository.findByActiveTrueAndCategoryId(categoryId).stream().map(this::toDomain).toList();
+    public List<Product> findByActiveAndCategoryId(boolean active, Long categoryId) {
+        return jpaRepository.findByActiveAndCategoryId(active, categoryId).stream().map(this::toDomain).toList();
     }
 
     private String generateSku() {

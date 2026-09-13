@@ -66,7 +66,7 @@ class ProductRepositoryAdapterTest {
                         Product.createNew("iPhone 13", null, categoryId, null, null, new BigDecimal("400"), 2, Instant.now()));
         adapter.save(toDeactivate.deactivated(Instant.now()));
 
-        var result = adapter.findActiveByCategoryId(categoryId);
+        var result = adapter.findByActiveAndCategoryId(true, categoryId);
 
         assertThat(result).extracting(Product::getId).containsExactly(active.getId());
     }

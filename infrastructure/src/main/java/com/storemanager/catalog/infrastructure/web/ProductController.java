@@ -6,6 +6,7 @@ import com.storemanager.catalog.usecase.CreateProductUseCase;
 import com.storemanager.catalog.usecase.DeactivateProductUseCase;
 import com.storemanager.catalog.usecase.ListProductsUseCase;
 import com.storemanager.catalog.usecase.ProductNotFoundException;
+import com.storemanager.catalog.usecase.ReactivateProductUseCase;
 import com.storemanager.catalog.usecase.UpdateProductUseCase;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -30,16 +31,19 @@ public class ProductController {
     private final ListProductsUseCase listProductsUseCase;
     private final UpdateProductUseCase updateProductUseCase;
     private final DeactivateProductUseCase deactivateProductUseCase;
+    private final ReactivateProductUseCase reactivateProductUseCase;
 
     public ProductController(
             CreateProductUseCase createProductUseCase,
             ListProductsUseCase listProductsUseCase,
             UpdateProductUseCase updateProductUseCase,
-            DeactivateProductUseCase deactivateProductUseCase) {
+            DeactivateProductUseCase deactivateProductUseCase,
+            ReactivateProductUseCase reactivateProductUseCase) {
         this.createProductUseCase = createProductUseCase;
         this.listProductsUseCase = listProductsUseCase;
         this.updateProductUseCase = updateProductUseCase;
         this.deactivateProductUseCase = deactivateProductUseCase;
+        this.reactivateProductUseCase = reactivateProductUseCase;
     }
 
     @PostMapping
@@ -58,8 +62,10 @@ public class ProductController {
     }
 
     @GetMapping
-    public List<ProductResponse> list(@RequestParam(required = false) Long categoryId) {
-        return listProductsUseCase.execute(categoryId).stream().map(ProductResponse::from).toList();
+    public List<ProductResponse> list(
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false, defaultValue = "true") boolean active) {
+        return listProductsUseCase.execute(categoryId, active).stream().map(ProductResponse::from).toList();
     }
 
     @PutMapping("/{id}")
@@ -81,6 +87,12 @@ public class ProductController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deactivate(@PathVariable Long id) {
         deactivateProductUseCase.execute(id);
+    }
+
+    @PatchMapping("/{id}/activate")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void activate(@PathVariable Long id) {
+        reactivateProductUseCase.execute(id);
     }
 
     @ExceptionHandler(ProductNotFoundException.class)
