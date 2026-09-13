@@ -1,8 +1,13 @@
 package com.storemanager.catalog.infrastructure.config;
 
 import com.storemanager.catalog.domain.port.CategoryRepositoryPort;
+import com.storemanager.catalog.domain.port.ProductRepositoryPort;
 import com.storemanager.catalog.usecase.CreateCategoryUseCase;
+import com.storemanager.catalog.usecase.CreateProductUseCase;
+import com.storemanager.catalog.usecase.DeactivateProductUseCase;
 import com.storemanager.catalog.usecase.ListCategoriesUseCase;
+import com.storemanager.catalog.usecase.ListProductsUseCase;
+import com.storemanager.catalog.usecase.UpdateProductUseCase;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -23,5 +28,26 @@ public class UseCaseConfiguration {
     @Bean
     public ListCategoriesUseCase listCategoriesUseCase(CategoryRepositoryPort categoryRepositoryPort) {
         return new ListCategoriesUseCase(categoryRepositoryPort);
+    }
+
+    @Bean
+    public CreateProductUseCase createProductUseCase(
+            ProductRepositoryPort productRepositoryPort, CategoryRepositoryPort categoryRepositoryPort) {
+        return new CreateProductUseCase(productRepositoryPort, categoryRepositoryPort);
+    }
+
+    @Bean
+    public ListProductsUseCase listProductsUseCase(ProductRepositoryPort productRepositoryPort) {
+        return new ListProductsUseCase(productRepositoryPort);
+    }
+
+    @Bean
+    public UpdateProductUseCase updateProductUseCase(ProductRepositoryPort productRepositoryPort) {
+        return new UpdateProductUseCase(productRepositoryPort);
+    }
+
+    @Bean
+    public DeactivateProductUseCase deactivateProductUseCase(ProductRepositoryPort productRepositoryPort) {
+        return new DeactivateProductUseCase(productRepositoryPort);
     }
 }
