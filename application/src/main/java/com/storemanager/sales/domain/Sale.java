@@ -32,19 +32,26 @@ public final class Sale {
         if (items == null || items.isEmpty()) {
             throw new IllegalArgumentException("Sale must have at least one line item");
         }
-        if (buyerDocumentType == null || buyerDocumentType.isBlank()) {
-            throw new IllegalArgumentException("Sale buyer documentType is required");
-        }
-        if (buyerDocumentNumber == null || buyerDocumentNumber.isBlank()) {
-            throw new IllegalArgumentException("Sale buyer documentNumber is required");
-        }
+        List<SaleItem> copiedItems = List.copyOf(items);
+        BigDecimal computedTotal =
+                copiedItems.stream().map(SaleItem::getSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BuyerDocumentValidator.validate(buyerDocumentType, buyerDocumentNumber, computedTotal);
         this.id = id;
-        this.items = List.copyOf(items);
-        this.buyerDocumentType = buyerDocumentType;
-        this.buyerDocumentNumber = buyerDocumentNumber;
+        this.items = copiedItems;
+        this.buyerDocumentType = blankToNull(buyerDocumentType);
+        this.buyerDocumentNumber = blankToNull(buyerDocumentNumber);
         this.status = status;
         this.createdAt = createdAt;
-        this.total = this.items.stream().map(SaleItem::getSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+        this.total = computedTotal;
+    }
+
+    /**
+     * Absent (never sent by the client) and blank/empty (sent as {@code ""}) both mean "no buyer
+     * document" — normalized to {@code null} here so both representations are indistinguishable
+     * once inside the domain (see design.md's Interfaces/Contracts note on the request body).
+     */
+    private static String blankToNull(String value) {
+        return (value == null || value.isBlank()) ? null : value;
     }
 
     public static Sale createNew(

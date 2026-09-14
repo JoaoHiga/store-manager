@@ -115,4 +115,61 @@ describe('RecordSalePage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Elegí un producto en cada línea');
     expect(salesApi.recordSale).not.toHaveBeenCalled();
   });
+
+  it('offers DNI, RUC, CE and PASAPORTE as document type options', async () => {
+    catalogApi.listProducts.mockResolvedValue([iphone]);
+    renderPage();
+
+    await screen.findByText('iPhone 12 (3 en stock)');
+    const typeSelect = screen.getByLabelText('Tipo de documento');
+
+    expect(within(typeSelect).getByText('DNI')).toBeInTheDocument();
+    expect(within(typeSelect).getByText('RUC')).toBeInTheDocument();
+    expect(within(typeSelect).getByText('CE')).toBeInTheDocument();
+    expect(within(typeSelect).getByText('PASAPORTE')).toBeInTheDocument();
+  });
+
+  it('records a sale with no buyer document at all when "Sin documento" is chosen', async () => {
+    catalogApi.listProducts.mockResolvedValue([iphone]);
+    salesApi.recordSale.mockResolvedValue({ id: 9, status: 'COMPLETED' });
+    renderPage();
+
+    await screen.findByText('iPhone 12 (3 en stock)');
+    await userEvent.selectOptions(screen.getByLabelText('Producto'), '1');
+    await userEvent.type(screen.getByLabelText('Cantidad'), '1');
+    await userEvent.click(screen.getByRole('checkbox', { name: /sin documento/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'Registrar venta' }));
+
+    await waitFor(() => expect(salesApi.recordSale).toHaveBeenCalled());
+    const payload = salesApi.recordSale.mock.calls[0][0];
+    expect(payload.items).toEqual([{ productId: 1, quantity: 1 }]);
+    expect(payload).not.toHaveProperty('buyerDocumentType');
+    expect(payload).not.toHaveProperty('buyerDocumentNumber');
+  });
+
+  it('hides the document type and number fields once "Sin documento" is checked', async () => {
+    catalogApi.listProducts.mockResolvedValue([iphone]);
+    renderPage();
+
+    await screen.findByText('iPhone 12 (3 en stock)');
+    await userEvent.click(screen.getByRole('checkbox', { name: /sin documento/i }));
+
+    expect(screen.queryByLabelText('Tipo de documento')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Número de documento')).not.toBeInTheDocument();
+  });
+
+  it('does not require a document number when "Sin documento" is checked', async () => {
+    catalogApi.listProducts.mockResolvedValue([iphone]);
+    salesApi.recordSale.mockResolvedValue({ id: 11, status: 'COMPLETED' });
+    renderPage();
+
+    await screen.findByText('iPhone 12 (3 en stock)');
+    await userEvent.selectOptions(screen.getByLabelText('Producto'), '1');
+    await userEvent.type(screen.getByLabelText('Cantidad'), '1');
+    await userEvent.click(screen.getByRole('checkbox', { name: /sin documento/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'Registrar venta' }));
+
+    await waitFor(() => expect(salesApi.recordSale).toHaveBeenCalled());
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
 });

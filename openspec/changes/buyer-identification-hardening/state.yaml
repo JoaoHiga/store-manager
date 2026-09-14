@@ -1,0 +1,14 @@
+change: buyer-identification-hardening
+phase: tasks
+artifact_store: hybrid
+artifacts:
+  explore: true
+  research: true
+  proposal: true
+  specs: false
+  design: true
+  tasks: true
+  apply: false
+  verify: false
+  archive: false
+last_updated: 2026-09-14T16:45:00-05:00

@@ -7,7 +7,17 @@ import { FormField } from '../components/molecules/FormField';
 
 const emptyLine = { productId: '', quantity: '' };
 
-const BUYER_DOCUMENT_TYPES = ['DNI', 'RUC'];
+const BUYER_DOCUMENT_TYPES = ['DNI', 'RUC', 'CE', 'PASAPORTE'];
+
+// Peru's "boleta simple" threshold (research.md): below this total a sale may be recorded with
+// no buyer document at all. Kept in sync with BuyerDocumentValidator.BOLETA_SIMPLE_THRESHOLD on
+// the backend — the real enforcer; this is only a soft, client-side hint.
+const BOLETA_SIMPLE_THRESHOLD = 700;
+
+const DOCUMENT_FORMAT_HINTS = {
+  DNI: 'DNI: 8 dígitos',
+  RUC: 'RUC: 11 dígitos',
+};
 
 /**
  * Records a sale: one or more line items (product + quantity) plus a buyer
@@ -28,8 +38,17 @@ export function RecordSalePage() {
   const [lines, setLines] = useState([{ ...emptyLine }]);
   const [buyerDocumentType, setBuyerDocumentType] = useState(BUYER_DOCUMENT_TYPES[0]);
   const [buyerDocumentNumber, setBuyerDocumentNumber] = useState('');
+  const [noDocument, setNoDocument] = useState(false);
   const [formError, setFormError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+
+  const runningTotal = lines.reduce((sum, line) => {
+    const product = availableProducts.find((candidate) => String(candidate.id) === String(line.productId));
+    if (!product || line.quantity === '') {
+      return sum;
+    }
+    return sum + product.salePrice * Number(line.quantity);
+  }, 0);
 
   const recordMutation = useMutation({
     mutationFn: (payload) => recordSale(payload),
@@ -40,6 +59,7 @@ export function RecordSalePage() {
       setSuccessMessage(`Venta #${sale.id} registrada correctamente`);
       setLines([{ ...emptyLine }]);
       setBuyerDocumentNumber('');
+      setNoDocument(false);
     },
     onError: (mutationError) => {
       setSuccessMessage(null);
@@ -63,7 +83,7 @@ export function RecordSalePage() {
     event.preventDefault();
     setSuccessMessage(null);
 
-    if (!buyerDocumentNumber.trim()) {
+    if (!noDocument && !buyerDocumentNumber.trim()) {
       setFormError('El número de documento es obligatorio');
       return;
     }
@@ -87,8 +107,7 @@ export function RecordSalePage() {
     setFormError(null);
     recordMutation.mutate({
       items: lines.map((line) => ({ productId: Number(line.productId), quantity: Number(line.quantity) })),
-      buyerDocumentType,
-      buyerDocumentNumber,
+      ...(noDocument ? {} : { buyerDocumentType, buyerDocumentNumber }),
     });
   }
 
@@ -132,25 +151,47 @@ export function RecordSalePage() {
         </Button>
 
         <div className="form-field">
-          <label htmlFor="buyerDocumentType">Tipo de documento</label>
-          <select
-            id="buyerDocumentType"
-            value={buyerDocumentType}
-            onChange={(event) => setBuyerDocumentType(event.target.value)}
-          >
-            {BUYER_DOCUMENT_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+          <label htmlFor="noDocument">
+            <input
+              type="checkbox"
+              id="noDocument"
+              checked={noDocument}
+              onChange={(event) => setNoDocument(event.target.checked)}
+            />
+            {' '}Sin documento (boleta simple, ventas menores a S/ {BOLETA_SIMPLE_THRESHOLD})
+          </label>
+          {!noDocument && runningTotal > 0 && runningTotal < BOLETA_SIMPLE_THRESHOLD && (
+            <p className="hint">Total actual: S/ {runningTotal.toFixed(2)} — esta venta califica para "sin documento".</p>
+          )}
         </div>
-        <FormField
-          id="buyerDocumentNumber"
-          label="Número de documento"
-          value={buyerDocumentNumber}
-          onChange={(event) => setBuyerDocumentNumber(event.target.value)}
-        />
+
+        {!noDocument && (
+          <>
+            <div className="form-field">
+              <label htmlFor="buyerDocumentType">Tipo de documento</label>
+              <select
+                id="buyerDocumentType"
+                value={buyerDocumentType}
+                onChange={(event) => setBuyerDocumentType(event.target.value)}
+              >
+                {BUYER_DOCUMENT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+              {DOCUMENT_FORMAT_HINTS[buyerDocumentType] && (
+                <p className="hint">{DOCUMENT_FORMAT_HINTS[buyerDocumentType]}</p>
+              )}
+            </div>
+            <FormField
+              id="buyerDocumentNumber"
+              label="Número de documento"
+              value={buyerDocumentNumber}
+              onChange={(event) => setBuyerDocumentNumber(event.target.value)}
+            />
+          </>
+        )}
 
         {formError && <p role="alert">{formError}</p>}
         {successMessage && <p role="status">{successMessage}</p>}

@@ -237,6 +237,14 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
         return taxInclusiveAmount.divide(IGV_MULTIPLIER, 2, RoundingMode.HALF_UP);
     }
 
+    /**
+     * Maps a buyer's document type to NubeFacT's {@code cliente_tipo_de_documento} code.
+     *
+     * <p>A {@code null} input (a "boleta simple" issued under the S/700 no-document threshold —
+     * see buyer-identification-hardening's design.md) maps to NubeFacT's "-" (varios/menor
+     * cuantía) code instead of throwing; covered by {@code
+     * NubeFactInvoicingAdapterTest#issueBoletaWithNullBuyerDocumentMapsToTheDashCodeAndDoesNotThrow}.
+     */
     private String mapDocumentType(String buyerDocumentType) {
         if (buyerDocumentType == null) {
             return "-";

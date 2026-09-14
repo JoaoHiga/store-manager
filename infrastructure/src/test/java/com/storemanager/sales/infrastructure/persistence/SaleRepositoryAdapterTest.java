@@ -86,4 +86,18 @@ class SaleRepositoryAdapterTest {
 
         assertThat(adapter.findAll()).hasSize(2);
     }
+
+    @Test
+    void aSaleWithNoBuyerDocumentRoundTripsAsNull() {
+        Sale saleWithNoDocument =
+                Sale.createNew(
+                        List.of(SaleItem.createNew(productId, "Usado", new BigDecimal("50"), 1)), null, null,
+                        Instant.now());
+
+        Sale saved = adapter.save(saleWithNoDocument);
+        Sale found = adapter.findById(saved.getId()).orElseThrow();
+
+        assertThat(found.getBuyerDocumentType()).isNull();
+        assertThat(found.getBuyerDocumentNumber()).isNull();
+    }
 }

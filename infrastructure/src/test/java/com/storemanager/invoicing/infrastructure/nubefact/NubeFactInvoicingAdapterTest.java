@@ -139,6 +139,35 @@ class NubeFactInvoicingAdapterTest {
     }
 
     @Test
+    void issueBoletaWithNullBuyerDocumentMapsToTheDashCodeAndDoesNotThrow() {
+        // buyer-identification-hardening: a "boleta simple" (sale under S/700, no buyer document)
+        // must map to NubeFacT's "-" (varios/menor cuantia) cliente_tipo_de_documento code instead
+        // of NPE-ing on a null buyerDocumentType — see research.md and design.md's Data Flow.
+        VoucherRequest request =
+                new VoucherRequest(
+                        null, null,
+                        List.of(new VoucherLineItem("Case protector", new BigDecimal("59.00"), 1, new BigDecimal("59.00"))),
+                        new BigDecimal("59.00"));
+
+        server.expect(requestTo(BASE_URL + ISSUE_PATH))
+                .andExpect(
+                        content()
+                                .json(
+                                        """
+                                        {
+                                          "cliente_tipo_de_documento": "-"
+                                        }
+                                        """,
+                                        false))
+                .andRespond(withSuccess(ACCEPTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
+
+        IssuedVoucher issued = adapter.issueBoleta(request);
+
+        assertThat(issued.accepted()).isTrue();
+        server.verify();
+    }
+
+    @Test
     void issueFacturaSendsRucDocumentTypeAndFacturaSeries() {
         VoucherRequest request =
                 new VoucherRequest(
