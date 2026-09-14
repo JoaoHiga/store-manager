@@ -10,19 +10,32 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static org.mockito.ArgumentMatchers.any;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.storemanager.invoicing.domain.Voucher;
+import com.storemanager.invoicing.domain.VoucherStatus;
+import com.storemanager.invoicing.domain.VoucherType;
+import com.storemanager.invoicing.domain.port.VoucherRepositoryPort;
+import com.storemanager.invoicing.usecase.VoidRejectedException;
+import com.storemanager.invoicing.usecase.VoucherNotFoundException;
+import com.storemanager.invoicing.usecase.VoucherNotVoidableException;
 import com.storemanager.sales.domain.Sale;
 import com.storemanager.sales.domain.SaleItem;
+import com.storemanager.sales.domain.SaleStatus;
+import com.storemanager.sales.usecase.CancelSaleUseCase;
 import com.storemanager.sales.usecase.GetSaleUseCase;
 import com.storemanager.sales.usecase.InactiveProductException;
 import com.storemanager.sales.usecase.InsufficientStockException;
 import com.storemanager.sales.usecase.ListSalesUseCase;
 import com.storemanager.sales.usecase.ProductNotFoundException;
 import com.storemanager.sales.usecase.RecordSaleUseCase;
+import com.storemanager.sales.usecase.RetrySaleVoucherUseCase;
 import com.storemanager.sales.usecase.SaleNotFoundException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -39,6 +52,15 @@ class SaleControllerTest {
     @MockBean private RecordSaleUseCase recordSaleUseCase;
     @MockBean private ListSalesUseCase listSalesUseCase;
     @MockBean private GetSaleUseCase getSaleUseCase;
+    @MockBean private RetrySaleVoucherUseCase retrySaleVoucherUseCase;
+    @MockBean private CancelSaleUseCase cancelSaleUseCase;
+    @MockBean private VoucherRepositoryPort voucherRepositoryPort;
+
+    private static Voucher sampleVoucher(long id, Long saleId, VoucherStatus status) {
+        return Voucher.reconstitute(
+                id, saleId, VoucherType.BOLETA, status, "DNI", "12345678", 1, null, "REF-1", "pdf", "xml", "cdr",
+                "hash", Instant.now(), Instant.now());
+    }
 
     private static Sale sampleSale(long id, BigDecimal unitPrice) {
         SaleItem item = SaleItem.reconstitute(1L, 1L, "iPhone 12", unitPrice, 1);
@@ -143,8 +165,9 @@ class SaleControllerTest {
     }
 
     @Test
-    void viewsASalesDetailWithVoucherStatusAbsentForNow() throws Exception {
+    void viewsASalesDetailWithNoVoucherOmitsVoucherStatus() throws Exception {
         when(getSaleUseCase.execute(1L)).thenReturn(sampleSale(1L, new BigDecimal("350")));
+        when(voucherRepositoryPort.findBySaleId(1L)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/sales/1"))
                 .andExpect(status().isOk())
@@ -153,9 +176,95 @@ class SaleControllerTest {
     }
 
     @Test
+    void viewsASalesDetailWithAnAcceptedVoucherIncludesStatusAndDocumentLinks() throws Exception {
+        when(getSaleUseCase.execute(1L)).thenReturn(sampleSale(1L, new BigDecimal("350")));
+        when(voucherRepositoryPort.findBySaleId(1L))
+                .thenReturn(Optional.of(sampleVoucher(10L, 1L, VoucherStatus.ACCEPTED)));
+
+        mockMvc.perform(get("/api/sales/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voucherStatus").value("ACCEPTED"))
+                .andExpect(jsonPath("$.pdfLink").value("pdf"))
+                .andExpect(jsonPath("$.xmlLink").value("xml"))
+                .andExpect(jsonPath("$.cdrLink").value("cdr"))
+                .andExpect(jsonPath("$.hash").value("hash"));
+    }
+
+    @Test
+    void viewsASalesDetailWithAPendingVoucherOmitsDocumentLinks() throws Exception {
+        when(getSaleUseCase.execute(1L)).thenReturn(sampleSale(1L, new BigDecimal("350")));
+        when(voucherRepositoryPort.findBySaleId(1L))
+                .thenReturn(Optional.of(sampleVoucher(10L, 1L, VoucherStatus.PENDING)));
+
+        mockMvc.perform(get("/api/sales/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voucherStatus").value("PENDING"))
+                .andExpect(jsonPath("$.pdfLink").doesNotExist());
+    }
+
+    @Test
     void returns404WhenViewingANonexistentSale() throws Exception {
         when(getSaleUseCase.execute(999L)).thenThrow(new SaleNotFoundException(999L));
 
         mockMvc.perform(get("/api/sales/999")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void retryingAVoucherReturnsItsUpdatedStatus() throws Exception {
+        when(retrySaleVoucherUseCase.execute(1L)).thenReturn(sampleVoucher(10L, 1L, VoucherStatus.ACCEPTED));
+
+        mockMvc.perform(post("/api/sales/1/retry-voucher"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.saleId").value(1))
+                .andExpect(jsonPath("$.status").value("ACCEPTED"));
+    }
+
+    @Test
+    void retryingAVoucherForASaleWithNoVoucherReturns404() throws Exception {
+        when(retrySaleVoucherUseCase.execute(999L)).thenThrow(VoucherNotFoundException.forSale(999L));
+
+        mockMvc.perform(post("/api/sales/999/retry-voucher")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void voidingASaleReturnsItCancelled() throws Exception {
+        SaleItem item = SaleItem.reconstitute(1L, 1L, "iPhone 12", new BigDecimal("350"), 1);
+        Sale cancelledSale = Sale.reconstitute(1L, List.of(item), "DNI", "12345678", SaleStatus.CANCELLED, Instant.now());
+        when(cancelSaleUseCase.execute(1L, "Cliente solicito anulacion")).thenReturn(cancelledSale);
+
+        String requestJson = "{\"reason\":\"Cliente solicito anulacion\"}";
+
+        mockMvc.perform(post("/api/sales/1/void").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+    }
+
+    @Test
+    void voidingASaleWithNoReasonIsRejectedWith400() throws Exception {
+        mockMvc.perform(post("/api/sales/1/void").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void voidingASaleWhoseVoucherIsNotAcceptedReturns409() throws Exception {
+        when(cancelSaleUseCase.execute(any(), any()))
+                .thenThrow(new VoucherNotVoidableException(VoucherStatus.PENDING));
+
+        String requestJson = "{\"reason\":\"reason\"}";
+
+        mockMvc.perform(post("/api/sales/1/void").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void voidingASaleTheOseDoesNotConfirmReturns502() throws Exception {
+        when(cancelSaleUseCase.execute(any(), any())).thenThrow(new VoidRejectedException("SUNAT no acepto la baja"));
+
+        String requestJson = "{\"reason\":\"reason\"}";
+
+        mockMvc.perform(post("/api/sales/1/void").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isBadGateway());
     }
 }

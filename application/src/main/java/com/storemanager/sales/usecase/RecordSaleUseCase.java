@@ -2,6 +2,7 @@ package com.storemanager.sales.usecase;
 
 import com.storemanager.catalog.domain.Product;
 import com.storemanager.catalog.domain.port.ProductRepositoryPort;
+import com.storemanager.invoicing.usecase.IssueVoucherForSaleUseCase;
 import com.storemanager.sales.domain.Sale;
 import com.storemanager.sales.domain.SaleItem;
 import com.storemanager.sales.domain.port.SaleRepositoryPort;
@@ -21,16 +22,32 @@ import java.util.Map;
  * — found and required by review-reliability's R3-stock-not-decremented finding. Then each
  * product's current {@code salePrice}/{@code description} is snapshotted onto its {@link SaleItem}
  * so a later catalog change never affects this sale (see design.md, Decision: Sale line-item
- * pricing). Nothing here calls invoicing: that's wired in a later PR.
+ * pricing).
+ *
+ * <p>Once the sale is persisted, this use case calls {@link IssueVoucherForSaleUseCase} directly
+ * (PR4 of sales-invoicing) rather than through a separate orchestrating use case: design.md's Data
+ * Flow shows voucher issuance as the immediate next step after "Sale persisted", with no
+ * additional business rule of its own in between, so a wrapper use case here would only add
+ * indirection — {@code RecordSaleUseCase} stays the app's single "record a sale" entry point,
+ * which is what {@code SaleController} already calls. Per {@code IssueVoucherForSaleUseCase}'s own
+ * contract it never throws and always persists either an {@code ACCEPTED} or {@code PENDING}
+ * voucher, so a sale is never rolled back or blocked by an invoicing failure — its returned {@code
+ * Voucher} is intentionally discarded here; voucher state is queried separately (by sale id) when
+ * needed.
  */
 public class RecordSaleUseCase {
 
     private final SaleRepositoryPort saleRepository;
     private final ProductRepositoryPort productRepository;
+    private final IssueVoucherForSaleUseCase issueVoucherForSaleUseCase;
 
-    public RecordSaleUseCase(SaleRepositoryPort saleRepository, ProductRepositoryPort productRepository) {
+    public RecordSaleUseCase(
+            SaleRepositoryPort saleRepository,
+            ProductRepositoryPort productRepository,
+            IssueVoucherForSaleUseCase issueVoucherForSaleUseCase) {
         this.saleRepository = saleRepository;
         this.productRepository = productRepository;
+        this.issueVoucherForSaleUseCase = issueVoucherForSaleUseCase;
     }
 
     public Sale execute(List<SaleLineItemRequest> lines, String buyerDocumentType, String buyerDocumentNumber) {
@@ -59,6 +76,8 @@ public class RecordSaleUseCase {
                 lines.stream().map(line -> toSaleItem(line, productsById.get(line.productId()))).toList();
         Sale sale = Sale.createNew(items, buyerDocumentType, buyerDocumentNumber, Instant.now());
         Sale saved = saleRepository.save(sale);
+
+        issueVoucherForSaleUseCase.execute(saved);
 
         Instant now = Instant.now();
         for (Map.Entry<Long, Integer> requested : requestedQuantityByProductId.entrySet()) {

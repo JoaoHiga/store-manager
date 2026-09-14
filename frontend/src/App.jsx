@@ -1,5 +1,7 @@
 import { CategoriesPage } from './pages/CategoriesPage';
 import { ProductsPage } from './pages/ProductsPage';
+import { RecordSalePage } from './pages/RecordSalePage';
+import { SalesListPage } from './pages/SalesListPage';
 import './App.css';
 
 function App() {
@@ -8,6 +10,8 @@ function App() {
       <h1>store-manager</h1>
       <CategoriesPage />
       <ProductsPage />
+      <RecordSalePage />
+      <SalesListPage />
     </main>
   );
 }
