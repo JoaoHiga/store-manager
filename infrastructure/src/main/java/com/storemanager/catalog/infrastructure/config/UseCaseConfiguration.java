@@ -9,10 +9,17 @@ import com.storemanager.catalog.usecase.ListCategoriesUseCase;
 import com.storemanager.catalog.usecase.ListProductsUseCase;
 import com.storemanager.catalog.usecase.ReactivateProductUseCase;
 import com.storemanager.catalog.usecase.UpdateProductUseCase;
+import com.storemanager.invoicing.domain.port.InvoicingProvider;
+import com.storemanager.invoicing.domain.port.VoucherRepositoryPort;
+import com.storemanager.invoicing.usecase.IssueVoucherForSaleUseCase;
+import com.storemanager.invoicing.usecase.RetryPendingVoucherUseCase;
+import com.storemanager.invoicing.usecase.VoidSaleUseCase;
 import com.storemanager.sales.domain.port.SaleRepositoryPort;
+import com.storemanager.sales.usecase.CancelSaleUseCase;
 import com.storemanager.sales.usecase.GetSaleUseCase;
 import com.storemanager.sales.usecase.ListSalesUseCase;
 import com.storemanager.sales.usecase.RecordSaleUseCase;
+import com.storemanager.sales.usecase.RetrySaleVoucherUseCase;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -64,8 +71,10 @@ public class UseCaseConfiguration {
 
     @Bean
     public RecordSaleUseCase recordSaleUseCase(
-            SaleRepositoryPort saleRepositoryPort, ProductRepositoryPort productRepositoryPort) {
-        return new RecordSaleUseCase(saleRepositoryPort, productRepositoryPort);
+            SaleRepositoryPort saleRepositoryPort,
+            ProductRepositoryPort productRepositoryPort,
+            IssueVoucherForSaleUseCase issueVoucherForSaleUseCase) {
+        return new RecordSaleUseCase(saleRepositoryPort, productRepositoryPort, issueVoucherForSaleUseCase);
     }
 
     @Bean
@@ -76,5 +85,36 @@ public class UseCaseConfiguration {
     @Bean
     public GetSaleUseCase getSaleUseCase(SaleRepositoryPort saleRepositoryPort) {
         return new GetSaleUseCase(saleRepositoryPort);
+    }
+
+    @Bean
+    public IssueVoucherForSaleUseCase issueVoucherForSaleUseCase(
+            VoucherRepositoryPort voucherRepositoryPort, InvoicingProvider invoicingProvider) {
+        return new IssueVoucherForSaleUseCase(voucherRepositoryPort, invoicingProvider);
+    }
+
+    @Bean
+    public RetryPendingVoucherUseCase retryPendingVoucherUseCase(
+            VoucherRepositoryPort voucherRepositoryPort,
+            SaleRepositoryPort saleRepositoryPort,
+            InvoicingProvider invoicingProvider) {
+        return new RetryPendingVoucherUseCase(voucherRepositoryPort, saleRepositoryPort, invoicingProvider);
+    }
+
+    @Bean
+    public VoidSaleUseCase voidSaleUseCase(
+            VoucherRepositoryPort voucherRepositoryPort, InvoicingProvider invoicingProvider) {
+        return new VoidSaleUseCase(voucherRepositoryPort, invoicingProvider);
+    }
+
+    @Bean
+    public RetrySaleVoucherUseCase retrySaleVoucherUseCase(
+            VoucherRepositoryPort voucherRepositoryPort, RetryPendingVoucherUseCase retryPendingVoucherUseCase) {
+        return new RetrySaleVoucherUseCase(voucherRepositoryPort, retryPendingVoucherUseCase);
+    }
+
+    @Bean
+    public CancelSaleUseCase cancelSaleUseCase(VoidSaleUseCase voidSaleUseCase, SaleRepositoryPort saleRepositoryPort) {
+        return new CancelSaleUseCase(voidSaleUseCase, saleRepositoryPort);
     }
 }

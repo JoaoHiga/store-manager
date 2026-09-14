@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.storemanager.catalog.domain.Product;
+import com.storemanager.invoicing.domain.Voucher;
+import com.storemanager.invoicing.domain.VoucherStatus;
+import com.storemanager.invoicing.usecase.IssueVoucherForSaleUseCase;
 import com.storemanager.sales.domain.Sale;
 import com.storemanager.sales.domain.SaleStatus;
 import java.math.BigDecimal;
@@ -16,7 +19,12 @@ class RecordSaleUseCaseTest {
 
     private final InMemoryProductRepository productRepository = new InMemoryProductRepository();
     private final InMemorySaleRepository saleRepository = new InMemorySaleRepository();
-    private final RecordSaleUseCase useCase = new RecordSaleUseCase(saleRepository, productRepository);
+    private final InMemoryVoucherRepository voucherRepository = new InMemoryVoucherRepository();
+    private final FakeInvoicingProvider invoicingProvider = new FakeInvoicingProvider();
+    private final IssueVoucherForSaleUseCase issueVoucherForSaleUseCase =
+            new IssueVoucherForSaleUseCase(voucherRepository, invoicingProvider);
+    private final RecordSaleUseCase useCase =
+            new RecordSaleUseCase(saleRepository, productRepository, issueVoucherForSaleUseCase);
 
     private Product activeProduct;
 
@@ -147,5 +155,41 @@ class RecordSaleUseCaseTest {
 
         Sale reloaded = saleRepository.findById(sale.getId()).orElseThrow();
         assertThat(reloaded.getItems().get(0).getUnitPrice()).isEqualByComparingTo("350");
+    }
+
+    @Test
+    void recordingASaleIssuesAnAcceptedVoucherForIt() {
+        invoicingProvider.alwaysAccept();
+
+        Sale sale =
+                useCase.execute(List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678");
+
+        Voucher voucher = voucherRepository.findBySaleId(sale.getId()).orElseThrow();
+        assertThat(voucher.getStatus()).isEqualTo(VoucherStatus.ACCEPTED);
+        assertThat(sale.getStatus()).isEqualTo(SaleStatus.COMPLETED);
+    }
+
+    @Test
+    void aSaleStillCompletesWhenTheInvoicingProviderRejectsTheVoucherLeavingItPending() {
+        invoicingProvider.alwaysReject("Numero de documento invalido");
+
+        Sale sale =
+                useCase.execute(List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678");
+
+        assertThat(sale.getStatus()).isEqualTo(SaleStatus.COMPLETED);
+        Voucher voucher = voucherRepository.findBySaleId(sale.getId()).orElseThrow();
+        assertThat(voucher.getStatus()).isEqualTo(VoucherStatus.PENDING);
+    }
+
+    @Test
+    void aSaleStillCompletesWhenTheInvoicingProviderThrowsLeavingTheVoucherPending() {
+        invoicingProvider.alwaysThrow();
+
+        Sale sale =
+                useCase.execute(List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678");
+
+        assertThat(sale.getStatus()).isEqualTo(SaleStatus.COMPLETED);
+        Voucher voucher = voucherRepository.findBySaleId(sale.getId()).orElseThrow();
+        assertThat(voucher.getStatus()).isEqualTo(VoucherStatus.PENDING);
     }
 }

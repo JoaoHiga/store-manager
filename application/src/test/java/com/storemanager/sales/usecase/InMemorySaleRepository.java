@@ -13,9 +13,19 @@ class InMemorySaleRepository implements SaleRepositoryPort {
     private final List<Sale> sales = new ArrayList<>();
     private long nextSaleId = 1;
     private long nextItemId = 1;
+    private boolean failOnNextSave = false;
+
+    /** Simulates a transient DB failure on the very next {@link #save} call only. */
+    void failOnNextSave() {
+        this.failOnNextSave = true;
+    }
 
     @Override
     public Sale save(Sale sale) {
+        if (failOnNextSave) {
+            failOnNextSave = false;
+            throw new RuntimeException("Simulated database failure while saving sale " + sale.getId());
+        }
         if (sale.getId() != null) {
             sales.removeIf(s -> s.getId().equals(sale.getId()));
             sales.add(sale);

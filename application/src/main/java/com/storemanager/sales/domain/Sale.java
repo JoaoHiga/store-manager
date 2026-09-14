@@ -89,4 +89,16 @@ public final class Sale {
     public Instant getCreatedAt() {
         return createdAt;
     }
+
+    /**
+     * Marks this sale {@code CANCELLED} once its voucher has been voided (see {@code
+     * CancelSaleUseCase}, PR4 of sales-invoicing, and design.md's void path: "Voucher -&gt; VOIDED,
+     * Sale -&gt; CANCELLED"). A soft-state transition — this never deletes a row. Mirrors {@code
+     * Product}'s {@code deactivated()}/{@code activated()} transition-method shape; {@code now} is
+     * accepted for that same symmetry even though {@code Sale} does not (yet) track an {@code
+     * updatedAt} column the way {@code Product} does.
+     */
+    public Sale cancelled(Instant now) {
+        return new Sale(id, items, buyerDocumentType, buyerDocumentNumber, SaleStatus.CANCELLED, createdAt);
+    }
 }

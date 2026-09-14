@@ -76,4 +76,19 @@ class SaleTest {
 
         assertThatThrownBy(() -> sale.getItems().add(oneItem())).isInstanceOf(UnsupportedOperationException.class);
     }
+
+    @Test
+    void cancellingACompletedSaleTransitionsItToCancelledPreservingItsOtherFields() {
+        Sale sale = Sale.createNew(List.of(oneItem()), "DNI", "12345678", Instant.now());
+
+        Sale cancelled = sale.cancelled(Instant.now());
+
+        assertThat(cancelled.getStatus()).isEqualTo(SaleStatus.CANCELLED);
+        assertThat(cancelled.getId()).isEqualTo(sale.getId());
+        assertThat(cancelled.getTotal()).isEqualByComparingTo(sale.getTotal());
+        assertThat(cancelled.getItems()).isEqualTo(sale.getItems());
+        assertThat(cancelled.getBuyerDocumentType()).isEqualTo(sale.getBuyerDocumentType());
+        assertThat(cancelled.getBuyerDocumentNumber()).isEqualTo(sale.getBuyerDocumentNumber());
+        assertThat(cancelled.getCreatedAt()).isEqualTo(sale.getCreatedAt());
+    }
 }
