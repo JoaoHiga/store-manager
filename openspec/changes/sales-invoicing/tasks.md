@@ -54,9 +54,11 @@ Verify-phase only (not a PR): one manual smoke test issuing a real boleta + fact
 - [x] 4.3 `SaleController`: `POST /api/sales/{id}/retry-voucher`, `POST /api/sales/{id}/void` — new `CancelSaleUseCase`/`RetrySaleVoucherUseCase` coordinate the sales-side half PR2's `VoidSaleUseCase`/`RetryPendingVoucherUseCase` deferred
 - [x] 4.4 End-to-end backend tests (full suite) against `FakeInvoicingProvider`: happy path, forced failure → `PENDING` → scheduled retry succeeds, retry exhaustion → `NEEDS_ATTENTION` → manual retry, void flow — 181/181 tests pass, RDD review approved after one bounded correction (see apply-progress; `CancelSaleUseCase` originally called the irreversible OSE void before resolving the sale, and didn't distinguish a post-void save failure — both fixed)
 
-## Phase 5: Frontend (PR 5)
-- [ ] 5.1 `frontend/src/api/salesApi.js`: fetch wrapper for the 5 sales endpoints
-- [ ] 5.2 `RecordSalePage.jsx`: form to add line items (product picker + quantity) and buyer reference, submits a sale
-- [ ] 5.3 `SalesListPage.jsx`: list with voucher status badge, "Reintentar" and "Anular" actions wired to the new endpoints
-- [ ] 5.4 Component tests: record a sale, see a pending voucher retried, void an accepted sale — mocked API
-- [ ] 5.5 Manual E2E check against the real backend from PR1-4 (no real NubeFacT call — `FakeInvoicingProvider` still active until sandbox credentials exist)
+## Phase 5: Frontend (PR 5) — ✅ DONE
+- [x] 5.1 `frontend/src/api/salesApi.js`: fetch wrapper for the 5 sales endpoints
+- [x] 5.2 `RecordSalePage.jsx`: form to add line items (product picker + quantity) and buyer reference, submits a sale
+- [x] 5.3 `SalesListPage.jsx`: list with voucher status badge, "Reintentar" and "Anular" actions wired to the new endpoints
+- [x] 5.4 Component tests: record a sale, pending voucher retry, void an accepted sale — mocked API. 42/42 frontend tests pass (`npm test`), `npm run build` clean. RDD review approved with 6 non-blocking advisory findings (mostly extra test coverage suggestions).
+- [ ] 5.5 Manual E2E check against the real backend — **not done**, needs a person to click through the running app; left for the user
+
+**Also fixed along the way (belongs to PR4's scope, committed there instead):** `SaleResponse.voucherStatus` was hardcoded `null` in every `GET /api/sales`/`GET /api/sales/{id}` response — discovered while building this PR and checking the real API contract. See PR4.
