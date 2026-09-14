@@ -9,6 +9,10 @@ import com.storemanager.catalog.usecase.ListCategoriesUseCase;
 import com.storemanager.catalog.usecase.ListProductsUseCase;
 import com.storemanager.catalog.usecase.ReactivateProductUseCase;
 import com.storemanager.catalog.usecase.UpdateProductUseCase;
+import com.storemanager.sales.domain.port.SaleRepositoryPort;
+import com.storemanager.sales.usecase.GetSaleUseCase;
+import com.storemanager.sales.usecase.ListSalesUseCase;
+import com.storemanager.sales.usecase.RecordSaleUseCase;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -56,5 +60,21 @@ public class UseCaseConfiguration {
     @Bean
     public ReactivateProductUseCase reactivateProductUseCase(ProductRepositoryPort productRepositoryPort) {
         return new ReactivateProductUseCase(productRepositoryPort);
+    }
+
+    @Bean
+    public RecordSaleUseCase recordSaleUseCase(
+            SaleRepositoryPort saleRepositoryPort, ProductRepositoryPort productRepositoryPort) {
+        return new RecordSaleUseCase(saleRepositoryPort, productRepositoryPort);
+    }
+
+    @Bean
+    public ListSalesUseCase listSalesUseCase(SaleRepositoryPort saleRepositoryPort) {
+        return new ListSalesUseCase(saleRepositoryPort);
+    }
+
+    @Bean
+    public GetSaleUseCase getSaleUseCase(SaleRepositoryPort saleRepositoryPort) {
+        return new GetSaleUseCase(saleRepositoryPort);
     }
 }
