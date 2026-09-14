@@ -8,7 +8,9 @@ Record sales against the product catalog and trigger invoicing, list and view sa
 
 ### Requirement: Record a Sale
 
-The system MUST allow recording a sale with one or more line items, each referencing an existing, active `Product` by id, with `quantity` (> 0) and `unitPrice`/`description` snapshotted from the product at the moment of sale. The system MUST require a buyer reference (`documentType`, `documentNumber`) on every sale. The system MUST reject a sale referencing a nonexistent or inactive product, and MUST reject a sale whose requested quantity exceeds the product's current stock.
+The system MUST allow recording a sale with one or more line items, each referencing an existing, active `Product` by id, with `quantity` (> 0) and `unitPrice`/`description` snapshotted from the product at the moment of sale. The system MUST reject a sale referencing a nonexistent or inactive product, and MUST reject a sale whose requested quantity exceeds the product's current stock.
+
+A buyer reference (`documentType`, `documentNumber`) is required only when the sale's computed total is S/700 or more ("boleta simple" threshold); below that, the sale may be recorded with no buyer reference at all. When present, `documentType` MUST be one of DNI (exactly 8 numeric digits), RUC (11 digits, prefix in `{10, 15, 17, 20}`, valid modulo-11 check digit), Carnet de Extranjería, or Pasaporte (non-blank, 5-20 characters); a malformed value is rejected regardless of the sale's total.
 
 #### Scenario: Record a valid sale
 - GIVEN an active product "iPhone 12" with `stockQuantity: 3`
@@ -25,9 +27,19 @@ The system MUST allow recording a sale with one or more line items, each referen
 - WHEN a sale is recorded with a line item for that product, `quantity: 3`
 - THEN the system MUST reject the request with a validation error
 
-#### Scenario: Reject a sale with no buyer reference
-- WHEN a sale is recorded without a `documentType`/`documentNumber`
+#### Scenario: Record a low-total sale with no buyer reference
+- GIVEN a sale whose computed total is below S/700
+- WHEN the sale is recorded without a `documentType`/`documentNumber`
+- THEN the sale is persisted successfully with both buyer fields `null`
+
+#### Scenario: Reject a high-total sale with no buyer reference
+- GIVEN a sale whose computed total is S/700 or more
+- WHEN the sale is recorded without a `documentType`/`documentNumber`
 - THEN the system MUST reject the request with a validation error
+
+#### Scenario: Reject a malformed RUC or DNI
+- WHEN a sale is recorded with `documentType: RUC` and a `documentNumber` that fails the modulo-11 check digit, or `documentType: DNI` with a `documentNumber` that isn't exactly 8 digits
+- THEN the system MUST reject the request with a validation error, regardless of the sale's total
 
 ### Requirement: Sale Line Item Price Snapshot
 

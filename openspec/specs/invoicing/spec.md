@@ -8,7 +8,7 @@ Issue SUNAT-compliant electronic vouchers (boleta/factura) for completed sales t
 
 ### Requirement: Voucher Type Determination
 
-The system MUST determine the voucher type from the sale's buyer document type: a buyer identified by RUC MUST produce a factura; any other supported document type MUST produce a boleta.
+The system MUST determine the voucher type from the sale's buyer document type: a buyer identified by RUC MUST produce a factura; any other supported document type, or no document at all (a "boleta simple" sale under S/700), MUST produce a boleta. For a boleta simple, the outbound request to the OSE MUST carry no buyer document type/number rather than a placeholder value.
 
 #### Scenario: A RUC buyer produces a factura
 - WHEN a sale is recorded with buyer `documentType: RUC`
@@ -17,6 +17,10 @@ The system MUST determine the voucher type from the sale's buyer document type: 
 #### Scenario: A DNI buyer produces a boleta
 - WHEN a sale is recorded with buyer `documentType: DNI`
 - THEN the resulting voucher's type is `BOLETA`
+
+#### Scenario: A boleta simple (no buyer document) produces a boleta
+- WHEN a sale under S/700 is recorded with no buyer document
+- THEN the resulting voucher's type is `BOLETA`, with `null` buyer document type/number, and the OSE request maps this to its "varios/menor cuantía" document-type code
 
 ### Requirement: Voucher Issuance via OSE
 
