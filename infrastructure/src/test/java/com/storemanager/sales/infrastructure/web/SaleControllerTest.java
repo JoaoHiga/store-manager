@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storemanager.invoicing.domain.Voucher;
 import com.storemanager.invoicing.domain.VoucherStatus;
 import com.storemanager.invoicing.domain.VoucherType;
+import com.storemanager.invoicing.domain.port.VoucherRepositoryPort;
 import com.storemanager.invoicing.usecase.VoidRejectedException;
 import com.storemanager.invoicing.usecase.VoucherNotFoundException;
 import com.storemanager.invoicing.usecase.VoucherNotVoidableException;
@@ -34,6 +35,7 @@ import com.storemanager.sales.usecase.SaleNotFoundException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -52,6 +54,7 @@ class SaleControllerTest {
     @MockBean private GetSaleUseCase getSaleUseCase;
     @MockBean private RetrySaleVoucherUseCase retrySaleVoucherUseCase;
     @MockBean private CancelSaleUseCase cancelSaleUseCase;
+    @MockBean private VoucherRepositoryPort voucherRepositoryPort;
 
     private static Voucher sampleVoucher(long id, Long saleId, VoucherStatus status) {
         return Voucher.reconstitute(
@@ -162,13 +165,41 @@ class SaleControllerTest {
     }
 
     @Test
-    void viewsASalesDetailWithVoucherStatusAbsentForNow() throws Exception {
+    void viewsASalesDetailWithNoVoucherOmitsVoucherStatus() throws Exception {
         when(getSaleUseCase.execute(1L)).thenReturn(sampleSale(1L, new BigDecimal("350")));
+        when(voucherRepositoryPort.findBySaleId(1L)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/sales/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.buyerDocumentType").value("DNI"))
                 .andExpect(jsonPath("$.voucherStatus").doesNotExist());
+    }
+
+    @Test
+    void viewsASalesDetailWithAnAcceptedVoucherIncludesStatusAndDocumentLinks() throws Exception {
+        when(getSaleUseCase.execute(1L)).thenReturn(sampleSale(1L, new BigDecimal("350")));
+        when(voucherRepositoryPort.findBySaleId(1L))
+                .thenReturn(Optional.of(sampleVoucher(10L, 1L, VoucherStatus.ACCEPTED)));
+
+        mockMvc.perform(get("/api/sales/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voucherStatus").value("ACCEPTED"))
+                .andExpect(jsonPath("$.pdfLink").value("pdf"))
+                .andExpect(jsonPath("$.xmlLink").value("xml"))
+                .andExpect(jsonPath("$.cdrLink").value("cdr"))
+                .andExpect(jsonPath("$.hash").value("hash"));
+    }
+
+    @Test
+    void viewsASalesDetailWithAPendingVoucherOmitsDocumentLinks() throws Exception {
+        when(getSaleUseCase.execute(1L)).thenReturn(sampleSale(1L, new BigDecimal("350")));
+        when(voucherRepositoryPort.findBySaleId(1L))
+                .thenReturn(Optional.of(sampleVoucher(10L, 1L, VoucherStatus.PENDING)));
+
+        mockMvc.perform(get("/api/sales/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.voucherStatus").value("PENDING"))
+                .andExpect(jsonPath("$.pdfLink").doesNotExist());
     }
 
     @Test

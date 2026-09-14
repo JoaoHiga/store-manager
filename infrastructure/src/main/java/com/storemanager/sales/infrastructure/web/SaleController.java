@@ -1,6 +1,8 @@
 package com.storemanager.sales.infrastructure.web;
 
 import com.storemanager.catalog.infrastructure.web.ErrorResponse;
+import com.storemanager.invoicing.domain.Voucher;
+import com.storemanager.invoicing.domain.port.VoucherRepositoryPort;
 import com.storemanager.invoicing.usecase.VoidRejectedException;
 import com.storemanager.invoicing.usecase.VoucherNotFoundException;
 import com.storemanager.invoicing.usecase.VoucherNotVoidableException;
@@ -36,18 +38,21 @@ public class SaleController {
     private final GetSaleUseCase getSaleUseCase;
     private final RetrySaleVoucherUseCase retrySaleVoucherUseCase;
     private final CancelSaleUseCase cancelSaleUseCase;
+    private final VoucherRepositoryPort voucherRepository;
 
     public SaleController(
             RecordSaleUseCase recordSaleUseCase,
             ListSalesUseCase listSalesUseCase,
             GetSaleUseCase getSaleUseCase,
             RetrySaleVoucherUseCase retrySaleVoucherUseCase,
-            CancelSaleUseCase cancelSaleUseCase) {
+            CancelSaleUseCase cancelSaleUseCase,
+            VoucherRepositoryPort voucherRepository) {
         this.recordSaleUseCase = recordSaleUseCase;
         this.listSalesUseCase = listSalesUseCase;
         this.getSaleUseCase = getSaleUseCase;
         this.retrySaleVoucherUseCase = retrySaleVoucherUseCase;
         this.cancelSaleUseCase = cancelSaleUseCase;
+        this.voucherRepository = voucherRepository;
     }
 
     @PostMapping
@@ -56,17 +61,22 @@ public class SaleController {
         List<SaleLineItemRequest> lines =
                 request.items().stream().map(item -> new SaleLineItemRequest(item.productId(), item.quantity())).toList();
         Sale sale = recordSaleUseCase.execute(lines, request.buyerDocumentType(), request.buyerDocumentNumber());
-        return SaleResponse.from(sale);
+        return toResponse(sale);
     }
 
     @GetMapping
     public List<SaleResponse> list() {
-        return listSalesUseCase.execute().stream().map(SaleResponse::from).toList();
+        return listSalesUseCase.execute().stream().map(this::toResponse).toList();
     }
 
     @GetMapping("/{id}")
     public SaleResponse get(@PathVariable Long id) {
-        return SaleResponse.from(getSaleUseCase.execute(id));
+        return toResponse(getSaleUseCase.execute(id));
+    }
+
+    private SaleResponse toResponse(Sale sale) {
+        Voucher voucher = voucherRepository.findBySaleId(sale.getId()).orElse(null);
+        return SaleResponse.from(sale, voucher);
     }
 
     @PostMapping("/{id}/retry-voucher")
@@ -77,7 +87,7 @@ public class SaleController {
     @PostMapping("/{id}/void")
     public SaleResponse voidSale(@PathVariable Long id, @Valid @RequestBody VoidSaleRequest request) {
         Sale cancelled = cancelSaleUseCase.execute(id, request.reason());
-        return SaleResponse.from(cancelled);
+        return toResponse(cancelled);
     }
 
     @ExceptionHandler(SaleNotFoundException.class)
