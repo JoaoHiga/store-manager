@@ -17,3 +17,9 @@ management:
     web:
       exposure:
         include: health
+
+# NubeFacT credentials (design.md: read from the environment, never committed). Both have
+# sensible defaults so the app still boots without real sandbox credentials configured.
+nubefact:
+  base-url: ${NUBEFACT_BASE_URL:https://api.nubefact.com}
+  token: ${NUBEFACT_API_TOKEN:}
