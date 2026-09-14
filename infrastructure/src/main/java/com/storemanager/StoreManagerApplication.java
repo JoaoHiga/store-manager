@@ -2,6 +2,7 @@ package com.storemanager;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Spring Boot entry point. Lives in the infrastructure module on purpose: the
@@ -17,8 +18,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * {@code @DataJpaTest}, {@code @WebMvcTest}) under any bounded context's test
  * package, since that discovery walks up the package hierarchy from the test
  * class looking for exactly this annotation.
+ *
+ * <p>{@code @EnableScheduling} activates {@code RetryPendingVouchersJob}'s {@code @Scheduled}
+ * poll (PR4 of sales-invoicing) — this is the app's only scheduled job, so it's enabled here
+ * rather than via a dedicated scheduling configuration class.
  */
 @SpringBootApplication
+@EnableScheduling
 public class StoreManagerApplication {
 
     public static void main(String[] args) {

@@ -48,11 +48,11 @@ Verify-phase only (not a PR): one manual smoke test issuing a real boleta + fact
 - [x] 3.3 `application.yml`: `nubefact.base-url`/`nubefact.token` (env-var backed, repo has no `application.properties`); `RestClient` bean with connect/read timeouts; token redacted from any logging
 - [x] 3.4 Adapter unit tests against a mocked HTTP layer (`MockRestServiceServer`) — accepted, rejected, and connection-failure responses, request-shape assertions with exact IGV-split numbers matching `research.md`. Correlativo made durable (JPA-backed, `V5` migration) and concurrency-safe (single-transaction lock held for the whole HTTP call, proven by a real multi-threaded test) after RDD review found and required fixing two real bugs (non-durable counter, then a concurrency race in the first fix). RDD review skipped for final sign-off on this PR: the concurrency fix genuinely exceeds the 200-line correction budget the review froze for this candidate; code is verified independently (69/69 tests, `mvn clean test`), delivery follows ordinary repository policy per RDD's own contract (review is informational, never blocking) — user-confirmed.
 
-## Phase 4: Wire Sales → Invoicing (PR 4)
-- [ ] 4.1 `RecordSaleUseCase` triggers `IssueVoucherForSaleUseCase` after persisting the sale; sale status stays `COMPLETED` regardless of voucher outcome
-- [ ] 4.2 `RetryPendingVouchersJob` (`@Scheduled(fixedDelay = 300000)`), wired to `RetryPendingVoucherUseCase`
-- [ ] 4.3 `SaleController`: `POST /api/sales/{id}/retry-voucher`, `POST /api/sales/{id}/void`
-- [ ] 4.4 End-to-end backend tests (full suite) against `FakeInvoicingProvider`: happy path, forced failure → `PENDING` → scheduled retry succeeds, retry exhaustion → `NEEDS_ATTENTION` → manual retry, void flow
+## Phase 4: Wire Sales → Invoicing (PR 4) — ✅ DONE
+- [x] 4.1 `RecordSaleUseCase` triggers `IssueVoucherForSaleUseCase` after persisting the sale; sale status stays `COMPLETED` regardless of voucher outcome. Added `SaleStatus.CANCELLED` + `Sale.cancelled()` (deferred from PR1).
+- [x] 4.2 `RetryPendingVouchersJob` (`@Scheduled(fixedDelay = 300000)`), wired to `RetryPendingVoucherUseCase`, isolates a per-voucher failure so it can't abort the whole batch
+- [x] 4.3 `SaleController`: `POST /api/sales/{id}/retry-voucher`, `POST /api/sales/{id}/void` — new `CancelSaleUseCase`/`RetrySaleVoucherUseCase` coordinate the sales-side half PR2's `VoidSaleUseCase`/`RetryPendingVoucherUseCase` deferred
+- [x] 4.4 End-to-end backend tests (full suite) against `FakeInvoicingProvider`: happy path, forced failure → `PENDING` → scheduled retry succeeds, retry exhaustion → `NEEDS_ATTENTION` → manual retry, void flow — 181/181 tests pass, RDD review approved after one bounded correction (see apply-progress; `CancelSaleUseCase` originally called the irreversible OSE void before resolving the sale, and didn't distinguish a post-void save failure — both fixed)
 
 ## Phase 5: Frontend (PR 5)
 - [ ] 5.1 `frontend/src/api/salesApi.js`: fetch wrapper for the 5 sales endpoints
