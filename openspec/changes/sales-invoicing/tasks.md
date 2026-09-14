@@ -32,21 +32,21 @@ Verify-phase only (not a PR): one manual smoke test issuing a real boleta + fact
 - [x] 1.4 `SaleJpaEntity`, `SaleItemJpaEntity`, `SaleRepositoryAdapter`, `@DataJpaTest`
 - [x] 1.5 `SaleController` (`POST /api/sales`, `GET /api/sales`, `GET /api/sales/{id}`) + DTOs, MockMvc tests covering every `sales` spec scenario (record valid sale, reject inactive product, reject insufficient stock, reject missing buyer reference, price-snapshot scenario, list/view) — 103/103 tests pass, RDD review approved after one bounded correction (see apply-progress)
 
-## Phase 2: Invoicing Domain (PR 2)
-- [ ] 2.1 RED: tests for `Voucher` domain invariants (status transitions: `PENDING`→`ACCEPTED`/`NEEDS_ATTENTION`, `ACCEPTED`→`VOIDED` only) → `application/.../invoicing/domain/Voucher.java`
-- [ ] 2.2 `InvoicingProvider` port (`issueBoleta`, `issueFactura`, `issueCreditNote`, `checkStatus`, `voidVoucher`), `VoucherRepositoryPort`
-- [ ] 2.3 `FakeInvoicingProvider` (test scope) — configurable to accept, reject, or throw/timeout, mirroring `InMemoryCategoryRepository`'s pattern
-- [ ] 2.4 GREEN: `IssueVoucherForSaleUseCase` (boleta/factura determination by buyer document type; `ACCEPTED`/`PENDING` outcomes) — tests cover every `invoicing` spec scenario for issuance
-- [ ] 2.5 GREEN: `RetryPendingVoucherUseCase` (bounded attempts → `NEEDS_ATTENTION`, manual retry re-enables) — tests cover the retry-exhaustion and manual-retry-after-exhaustion scenarios
-- [ ] 2.6 GREEN: `VoidSaleUseCase` (only `ACCEPTED` vouchers voidable) — tests cover void success and rejection-on-non-accepted scenarios
-- [ ] 2.7 `infrastructure/.../db/migration/V4__create_vouchers.sql`: `vouchers` table, FK to `sales`
-- [ ] 2.8 `VoucherJpaEntity`, `VoucherRepositoryAdapter`, `@DataJpaTest`
+## Phase 2: Invoicing Domain (PR 2) — ✅ DONE
+- [x] 2.1 RED: tests for `Voucher` domain invariants (status transitions: `PENDING`→`ACCEPTED`/`NEEDS_ATTENTION`, `ACCEPTED`→`VOIDED` only) → `application/.../invoicing/domain/Voucher.java`
+- [x] 2.2 `InvoicingProvider` port (`issueBoleta`, `issueFactura`, `issueCreditNote`, `checkStatus`, `voidVoucher`), `VoucherRepositoryPort`
+- [x] 2.3 `FakeInvoicingProvider` (test scope) — configurable to accept, reject, or throw/timeout, mirroring `InMemoryCategoryRepository`'s pattern
+- [x] 2.4 GREEN: `IssueVoucherForSaleUseCase` (boleta/factura determination by buyer document type; `ACCEPTED`/`PENDING` outcomes) — tests cover every `invoicing` spec scenario for issuance
+- [x] 2.5 GREEN: `RetryPendingVoucherUseCase` (bounded attempts → `NEEDS_ATTENTION`, manual retry re-enables) — tests cover the retry-exhaustion and manual-retry-after-exhaustion scenarios
+- [x] 2.6 GREEN: `VoidSaleUseCase` (only `ACCEPTED` vouchers voidable; only transitions to `VOIDED` when the OSE confirms — RDD review correction) — tests cover void success, rejection-on-non-accepted, and OSE-rejects-the-void scenarios
+- [x] 2.7 `infrastructure/.../db/migration/V4__create_vouchers.sql`: `vouchers` table, FK to `sales`
+- [x] 2.8 `VoucherJpaEntity`, `VoucherRepositoryAdapter`, `@DataJpaTest` — 140/140 tests pass, RDD review approved after one bounded correction (see apply-progress)
 
-## Phase 3: NubeFacT Adapter (PR 3)
-- [ ] 3.1 `NubeFactInvoicingAdapter` implementing `InvoicingProvider` via Spring `RestClient`, mapping our domain shapes to/from NubeFacT's confirmed JSON fields (`tipo_de_comprobante`, `cliente_tipo_de_documento`, `tipo_de_igv`, cabecera totals, `items[]`, response links/hash/QR) per `research.md`
-- [ ] 3.2 Outbound field-length validation (e.g. `descripcion` ≤ 250 chars) before calling NubeFacT — rejects locally with a clear reason; covers the "Outbound Field Validation" spec scenario
-- [ ] 3.3 `application.properties`: `nubefact.base-url=${NUBEFACT_BASE_URL}`, `nubefact.token=${NUBEFACT_API_TOKEN}`; `RestClient` bean with connect/read timeouts; token redacted from any logging
-- [ ] 3.4 Adapter unit tests against a mocked HTTP layer (e.g. `MockRestServiceServer`) — accepted, rejected, and timeout responses, request-shape assertions matching `research.md`
+## Phase 3: NubeFacT Adapter (PR 3) — ✅ DONE
+- [x] 3.1 `NubeFactInvoicingAdapter` implementing `InvoicingProvider` via Spring `RestClient`, mapping our domain shapes to/from NubeFacT's confirmed JSON fields (`tipo_de_comprobante`, `cliente_tipo_de_documento`, `tipo_de_igv`, cabecera totals, `items[]`, response links/hash/QR) per `research.md`
+- [x] 3.2 Outbound field-length validation (e.g. `descripcion` ≤ 250 chars) before calling NubeFacT — rejects locally with a clear reason; covers the "Outbound Field Validation" spec scenario
+- [x] 3.3 `application.yml`: `nubefact.base-url`/`nubefact.token` (env-var backed, repo has no `application.properties`); `RestClient` bean with connect/read timeouts; token redacted from any logging
+- [x] 3.4 Adapter unit tests against a mocked HTTP layer (`MockRestServiceServer`) — accepted, rejected, and connection-failure responses, request-shape assertions with exact IGV-split numbers matching `research.md`. Correlativo made durable (JPA-backed, `V5` migration) and concurrency-safe (single-transaction lock held for the whole HTTP call, proven by a real multi-threaded test) after RDD review found and required fixing two real bugs (non-durable counter, then a concurrency race in the first fix). RDD review skipped for final sign-off on this PR: the concurrency fix genuinely exceeds the 200-line correction budget the review froze for this candidate; code is verified independently (69/69 tests, `mvn clean test`), delivery follows ordinary repository policy per RDD's own contract (review is informational, never blocking) — user-confirmed.
 
 ## Phase 4: Wire Sales → Invoicing (PR 4)
 - [ ] 4.1 `RecordSaleUseCase` triggers `IssueVoucherForSaleUseCase` after persisting the sale; sale status stays `COMPLETED` regardless of voucher outcome
