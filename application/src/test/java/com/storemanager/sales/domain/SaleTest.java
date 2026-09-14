@@ -58,6 +58,52 @@ class SaleTest {
     }
 
     @Test
+    void allowsNoBuyerDocumentWhenTotalIsBelowTheBoletaSimpleThreshold() {
+        SaleItem cheapItem = SaleItem.createNew(1L, "Funda", new BigDecimal("50"), 1);
+
+        Sale sale = Sale.createNew(List.of(cheapItem), null, null, Instant.now());
+
+        assertThat(sale.getBuyerDocumentType()).isNull();
+        assertThat(sale.getBuyerDocumentNumber()).isNull();
+        assertThat(sale.getTotal()).isEqualByComparingTo("50");
+    }
+
+    @Test
+    void rejectsNoBuyerDocumentWhenTotalIsAtOrAboveTheBoletaSimpleThreshold() {
+        SaleItem expensiveItem = SaleItem.createNew(1L, "iPhone 12", new BigDecimal("700"), 1);
+
+        assertThatThrownBy(() -> Sale.createNew(List.of(expensiveItem), null, null, Instant.now()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsAMalformedDniEvenWhenTotalIsBelowTheThreshold() {
+        SaleItem cheapItem = SaleItem.createNew(1L, "Funda", new BigDecimal("50"), 1);
+
+        assertThatThrownBy(() -> Sale.createNew(List.of(cheapItem), "DNI", "123", Instant.now()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsARucWithAnInvalidCheckDigitEvenAboveTheThreshold() {
+        SaleItem expensiveItem = SaleItem.createNew(1L, "iPhone 12", new BigDecimal("900"), 1);
+
+        assertThatThrownBy(
+                        () -> Sale.createNew(List.of(expensiveItem), "RUC", "20131312950", Instant.now()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void acceptsARucWithAValidCheckDigitAboveTheThreshold() {
+        SaleItem expensiveItem = SaleItem.createNew(1L, "iPhone 12", new BigDecimal("900"), 1);
+
+        Sale sale = Sale.createNew(List.of(expensiveItem), "RUC", "20131312955", Instant.now());
+
+        assertThat(sale.getBuyerDocumentType()).isEqualTo("RUC");
+        assertThat(sale.getBuyerDocumentNumber()).isEqualTo("20131312955");
+    }
+
+    @Test
     void reconstitutesAnExistingSaleKeepingItsIdAndStatus() {
         Instant createdAt = Instant.now();
         Sale sale =

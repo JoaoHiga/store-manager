@@ -37,7 +37,7 @@ class IssueVoucherForSaleUseCaseTest {
     void aRucBuyerProducesAFactura() {
         invoicingProvider.alwaysAccept();
 
-        Voucher voucher = useCase.execute(saleFor("RUC", "20123456789"));
+        Voucher voucher = useCase.execute(saleFor("RUC", "20131312955"));
 
         assertThat(voucher.getType()).isEqualTo(VoucherType.FACTURA);
     }
@@ -49,6 +49,22 @@ class IssueVoucherForSaleUseCaseTest {
         Voucher voucher = useCase.execute(saleFor("DNI", "12345678"));
 
         assertThat(voucher.getType()).isEqualTo(VoucherType.BOLETA);
+    }
+
+    @Test
+    void aSaleWithNoBuyerDocumentStillResolvesToBoleta() {
+        // Regression proof for buyer-identification-hardening: determineType's existing
+        // "RUC".equalsIgnoreCase(buyerDocumentType) was already null-safe (a String literal
+        // receiver never NPEs on a null argument, per design.md's Architecture Decisions) — this
+        // test proves that behavior wasn't accidentally broken while Sale/Voucher were relaxed to
+        // accept a null buyer reference.
+        invoicingProvider.alwaysAccept();
+
+        Voucher voucher = useCase.execute(saleFor(null, null));
+
+        assertThat(voucher.getType()).isEqualTo(VoucherType.BOLETA);
+        assertThat(voucher.getBuyerDocumentType()).isNull();
+        assertThat(voucher.getBuyerDocumentNumber()).isNull();
     }
 
     @Test
@@ -80,7 +96,7 @@ class IssueVoucherForSaleUseCaseTest {
     void saleCompletesAsPendingWithReasonRetainedWhenSunatRejects() {
         invoicingProvider.alwaysReject("Numero de documento del cliente invalido");
 
-        Voucher voucher = useCase.execute(saleFor("RUC", "20123456789"));
+        Voucher voucher = useCase.execute(saleFor("RUC", "20131312955"));
 
         assertThat(voucher.getStatus()).isEqualTo(VoucherStatus.PENDING);
         assertThat(voucher.getRejectionReason()).isEqualTo("Numero de documento del cliente invalido");

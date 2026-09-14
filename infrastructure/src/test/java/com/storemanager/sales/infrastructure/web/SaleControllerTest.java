@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -92,8 +93,46 @@ class SaleControllerTest {
     }
 
     @Test
-    void rejectsASaleWithNoBuyerReferenceWith400() throws Exception {
+    void recordsASaleWithNoBuyerReferenceFor201WhenTheTotalIsBelowTheBoletaSimpleThreshold() throws Exception {
+        when(recordSaleUseCase.execute(anyList(), isNull(), isNull()))
+                .thenReturn(sampleSale(1L, new BigDecimal("50")));
+
         String requestJson = "{\"items\":[{\"productId\":1,\"quantity\":1}]}";
+
+        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void rejectsASaleWithNoBuyerReferenceAtOrAboveTheBoletaSimpleThresholdWith400() throws Exception {
+        when(recordSaleUseCase.execute(anyList(), isNull(), isNull()))
+                .thenThrow(new IllegalArgumentException("Buyer document is required for sales of S/ 700.00 or more"));
+
+        String requestJson = "{\"items\":[{\"productId\":1,\"quantity\":5}]}";
+
+        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsASaleWithAMalformedRucWith400() throws Exception {
+        when(recordSaleUseCase.execute(anyList(), eq("RUC"), eq("99999999999")))
+                .thenThrow(new IllegalArgumentException("Invalid RUC check digit"));
+
+        String requestJson =
+                "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"RUC\",\"buyerDocumentNumber\":\"99999999999\"}";
+
+        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsASaleWithAMalformedDniWith400() throws Exception {
+        when(recordSaleUseCase.execute(anyList(), eq("DNI"), eq("123")))
+                .thenThrow(new IllegalArgumentException("DNI must be exactly 8 numeric digits"));
+
+        String requestJson =
+                "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"123\"}";
 
         mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
                 .andExpect(status().isBadRequest());

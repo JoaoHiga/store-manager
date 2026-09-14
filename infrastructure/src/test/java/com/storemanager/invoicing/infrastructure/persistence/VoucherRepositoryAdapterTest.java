@@ -120,4 +120,15 @@ class VoucherRepositoryAdapterTest {
         assertThat(pendingVouchers).extracting(Voucher::getId).contains(pending.getId());
         assertThat(pendingVouchers).extracting(Voucher::getId).doesNotContain(acceptedOnAnotherSale.getId());
     }
+
+    @Test
+    void aVoucherWithNoBuyerDocumentRoundTripsAsNull() {
+        Voucher voucherWithNoDocument = Voucher.createNew(saleId, VoucherType.BOLETA, null, null, Instant.now());
+
+        Voucher saved = adapter.save(voucherWithNoDocument);
+        Voucher found = adapter.findById(saved.getId()).orElseThrow();
+
+        assertThat(found.getBuyerDocumentType()).isNull();
+        assertThat(found.getBuyerDocumentNumber()).isNull();
+    }
 }

@@ -99,11 +99,22 @@ class RecordSaleUseCaseTest {
     }
 
     @Test
-    void rejectsASaleWithNoBuyerReference() {
+    void recordsASaleWithNoBuyerReferenceWhenTheTotalIsBelowTheBoletaSimpleThreshold() {
+        // activeProduct's salePrice is 350; one unit keeps the total under S/700.
+        Sale sale =
+                useCase.execute(List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), null, null);
+
+        assertThat(sale.getBuyerDocumentType()).isNull();
+        assertThat(sale.getBuyerDocumentNumber()).isNull();
+    }
+
+    @Test
+    void rejectsASaleWithNoBuyerReferenceWhenTheTotalIsAtOrAboveTheBoletaSimpleThreshold() {
+        // activeProduct's salePrice is 350; two units reach exactly S/700.
         assertThatThrownBy(
                         () ->
                                 useCase.execute(
-                                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), null, null))
+                                        List.of(new SaleLineItemRequest(activeProduct.getId(), 2)), null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

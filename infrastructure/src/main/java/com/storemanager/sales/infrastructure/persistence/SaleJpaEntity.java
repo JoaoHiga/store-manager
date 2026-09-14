@@ -23,10 +23,10 @@ public class SaleJpaEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "buyer_document_type", nullable = false, length = 10)
+    @Column(name = "buyer_document_type", nullable = true, length = 10)
     private String buyerDocumentType;
 
-    @Column(name = "buyer_document_number", nullable = false, length = 20)
+    @Column(name = "buyer_document_number", nullable = true, length = 20)
     private String buyerDocumentNumber;
 
     @Column(nullable = false, length = 20)

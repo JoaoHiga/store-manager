@@ -33,9 +33,23 @@ class VoucherTest {
     }
 
     @Test
-    void requiresANonBlankBuyerDocumentNumber() {
-        assertThatThrownBy(() -> Voucher.createNew(1L, VoucherType.BOLETA, "DNI", " ", NOW))
-                .isInstanceOf(IllegalArgumentException.class);
+    void acceptsNullBuyerDocumentFieldsForABoletaSimple() {
+        Voucher voucher = Voucher.createNew(1L, VoucherType.BOLETA, null, null, NOW);
+
+        assertThat(voucher.getBuyerDocumentType()).isNull();
+        assertThat(voucher.getBuyerDocumentNumber()).isNull();
+        assertThat(voucher.getStatus()).isEqualTo(VoucherStatus.PENDING);
+    }
+
+    @Test
+    void reconstituteAcceptsNullBuyerDocumentFieldsForABoletaSimple() {
+        Voucher voucher =
+                Voucher.reconstitute(
+                        1L, 1L, VoucherType.BOLETA, VoucherStatus.ACCEPTED, null, null, 0, null, "REF-1", "pdf",
+                        "xml", "cdr", "hash", NOW, NOW);
+
+        assertThat(voucher.getBuyerDocumentType()).isNull();
+        assertThat(voucher.getBuyerDocumentNumber()).isNull();
     }
 
     @Test

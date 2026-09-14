@@ -1,6 +1,10 @@
-# Delta for sales
+# Sales Specification
 
-## ADDED Requirements
+## Purpose
+
+Record sales against the product catalog and trigger invoicing, list and view sales with their voucher status, and void a completed sale when needed. This is the transactional core the shop's day-to-day operation runs on, sitting on top of `product-catalog` and triggering `invoicing`.
+
+## Requirements
 
 ### Requirement: Record a Sale
 

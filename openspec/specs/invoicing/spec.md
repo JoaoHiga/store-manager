@@ -1,6 +1,10 @@
-# Delta for invoicing
+# Invoicing Specification
 
-## ADDED Requirements
+## Purpose
+
+Issue SUNAT-compliant electronic vouchers (boleta/factura) for completed sales through an OSE (NubeFacT is the current adapter, chosen to stay swappable behind the `InvoicingProvider` port), handling automatic and manual retries and voids so an external service outage never blocks a sale. Peru tax-compliance-specific; depends on `sales`.
+
+## Requirements
 
 ### Requirement: Voucher Type Determination
 

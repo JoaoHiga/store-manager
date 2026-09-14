@@ -54,12 +54,6 @@ public final class Voucher {
         if (status == null) {
             throw new IllegalArgumentException("Voucher status is required");
         }
-        if (buyerDocumentType == null || buyerDocumentType.isBlank()) {
-            throw new IllegalArgumentException("Voucher buyer documentType is required");
-        }
-        if (buyerDocumentNumber == null || buyerDocumentNumber.isBlank()) {
-            throw new IllegalArgumentException("Voucher buyer documentNumber is required");
-        }
         if (attemptCount < 0) {
             throw new IllegalArgumentException("Voucher attemptCount must not be negative");
         }
