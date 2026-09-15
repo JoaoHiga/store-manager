@@ -1,5 +1,5 @@
 change: buyer-identification-hardening
-phase: apply
+phase: archive
 artifact_store: hybrid
 artifacts:
   explore: true
@@ -9,6 +9,6 @@ artifacts:
   design: true
   tasks: true
   apply: true
-  verify: false
-  archive: false
-last_updated: 2026-09-14T16:56:00-05:00
+  verify: true
+  archive: true
+last_updated: 2026-09-14T19:00:00-05:00
