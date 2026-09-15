@@ -62,3 +62,70 @@ None blocking. See Deviations #1 (CI risk to verify in PR3) and #3 (stale fronte
 
 ### Status
 6/6 PR1 tasks complete. Ready for PR2 (Phase B — Playwright).
+
+---
+
+## PR2 — Phase B (Full-Stack Playwright E2E): DONE
+
+**Mode**: Strict TDD
+
+### Completed Tasks
+- [x] 2.1 `@playwright/test` devDependency + `test:e2e` script added.
+- [x] 2.2 `playwright.config.js` with two-`webServer` array (Vite + `start-backend.sh`).
+- [x] 2.3 Revised — no separate Spring profile (see Deviations #1).
+- [x] 2.4-2.5 `sale-voucher-flow.spec.js`: 2 scenarios (BOLETA, FACTURA), both asserting the real outgoing POST body, the real POST response, and the real subsequent GET list response.
+- [x] 2.6 `frontend/e2e/README.md` written, including the port-collision incident.
+
+### Files Changed
+| File | Action | What Was Done |
+|------|--------|----------------|
+| `frontend/package.json` | Modified | Added `@playwright/test` devDependency, `test:e2e` script |
+| `frontend/playwright.config.js` | Created | Two-`webServer` config, `reuseExistingServer: false` |
+| `frontend/e2e/start-backend.sh` | Created | Throwaway Postgres (port 5433) + real Spring Boot app against it |
+| `frontend/e2e/sale-voucher-flow.spec.js` | Created | 2 scenarios: BOLETA, FACTURA — real UI, real network assertions |
+| `frontend/e2e/README.md` | Created | Prerequisites, env vars, known limitation |
+| `frontend/vite.config.js` | Modified | Excluded `e2e/**` from Vitest's own test discovery |
+
+### TDD Cycle Evidence
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| 2.1-2.6 | `sale-voucher-flow.spec.js` | E2E (Playwright, real browser + real servers) | ✅ `npm test` 50/50 still passing after `vite.config.js` change | ✅ Written — real failures at each infra layer before the stack ran correctly (see Deviations) | ✅ Passed (both scenarios) | ✅ 2 cases (BOLETA, FACTURA) via shared `recordSaleThroughTheRealUi` helper | ✅ Extracted the shared helper once both scenarios existed |
+
+### Test Summary
+- **Total tests written**: 2 (`sale-voucher-flow.spec.js`)
+- **Total tests passing**: 2/2 E2E, plus `npm test` (Vitest) 50/50 unaffected
+- **Layers used**: E2E (2, full browser + full stack)
+- **Approval tests**: None
+- **Pure functions created**: 0 (test infra + config)
+
+### Work Unit Evidence
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `npm run test:e2e` → 2 passed (17.4s) |
+| Runtime harness command/scenario and exact result | Real Vite dev server + real Spring Boot app (via `start-backend.sh`) + real throwaway Postgres 16-alpine container on port 5433 — confirmed via Playwright's `pw:webserver` debug log and direct `curl` sanity checks during debugging |
+| Rollback boundary | All PR2 files are new except `vite.config.js`'s one-line `exclude` addition and `package.json`'s devDependency/script — independently revertable without touching PR1 or PR3 |
+
+### Deviations from Design
+
+1. **No separate `application-sandbox.yaml` profile** (design.md's original plan): found no evidence NubeFacT has a distinct sandbox base URL (only sandbox/demo *credentials* on the same API, per available NubeFacT documentation) — inventing a profile around an unconfirmed assumption would have been worse than not having one. The existing default profile already reads `NUBEFACT_API_TOKEN` from the environment and degrades to `PENDING` gracefully when absent, which is sufficient for what this suite actually asserts (voucher *type* round-trip, not NubeFacT acceptance).
+
+2. **Real incident during implementation — reused a stale unrelated process and wrote to the real dev database.** First run of the Playwright suite used `reuseExistingServer: !process.env.CI` (the design's original plan, "standard" Playwright usage). Port 8080 already had an unrelated, long-running `mvn spring-boot:run` process left over from an earlier, unrelated session — pointed at the *real* local dev Postgres (port 5432). Playwright's health check (`GET /actuator/health` → 200) couldn't distinguish "the right server" from "a server," so it silently reused the wrong one. The test's `seedProduct`/`recordSale` calls wrote real rows into the developer's real dev database (one test sale mixed in with 5 of the user's own manual-testing sales). **Fix**: changed both `webServer` entries to `reuseExistingServer: false` — a run now fails loudly ("port already in use") instead of silently running against the wrong process. **User-directed cleanup**: gave the user exact scoped `DELETE` SQL (by the specific row ids involved) to run themselves against their own database with their own access — did not execute any mutating SQL against real dev data directly.
+
+3. **`mvn spring-boot:run` plugin-goal resolution needed two fix attempts.** `mvn -pl infrastructure -am spring-boot:run` (the shorthand prefix) failed with "No plugin found for prefix 'spring-boot'". The fully-qualified `org.springframework.boot:spring-boot-maven-plugin:run` (no version) resolved the *latest* plugin release (a `4.2.0-M1` milestone) against the *reactor root* (`store-manager`, a `pom`-packaged aggregator with no main class) instead of `infrastructure`, and failed with "Unable to find a suitable main class". **Fix**: `start-backend.sh` runs `mvn -f infrastructure/pom.xml spring-boot:run` directly against `infrastructure`'s own `pom.xml`, which declares the plugin with the project's pinned `${spring-boot.version}` (3.3.4) — resolves the right version, against the right project, every time.
+
+4. **Docker container cleanup is best-effort, not guaranteed.** `start-backend.sh`'s `trap cleanup EXIT INT TERM` doesn't always fire when Playwright tears down the process (observed: container left running after a normal successful test run). The script defensively `docker rm -f`s any same-named container before starting, so this self-heals on the next run and never causes a failure — documented as a known limitation in `frontend/e2e/README.md` rather than over-engineered away.
+
+### Issues Found
+None blocking, beyond Deviations #2 (real incident, fixed and disclosed) and #4 (cosmetic, documented).
+
+### Remaining Tasks
+- [ ] Phase 3 (PR3): CI workflow + archive gate rule. Must verify PR1's Deviation #1 (local Testcontainers/Docker-29.x `api.version=1.44` workaround) and PR2's `reuseExistingServer: false`/port assumptions both hold on `ubuntu-latest`.
+
+### Workload / PR Boundary
+- Mode: chained PR slice (stacked-to-main), branched from PR1's branch
+- Current work unit: PR2 — Phase B
+- Boundary: starts from PR1's tip, ends with a self-contained, independently mergeable Playwright E2E suite
+- Estimated review budget impact: ~260 lines authored (package.json +2, playwright.config.js ~30, start-backend.sh ~25, sale-voucher-flow.spec.js ~110, README.md ~35, vite.config.js +4) — within the 400-line budget for this slice
+
+### Status
+2/2 PR2 tasks complete. Ready for PR3 (CI + archive gate).
