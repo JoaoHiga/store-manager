@@ -42,6 +42,7 @@ rules:
     coverage_threshold: 0
   archive:
     - Warn before merging destructive deltas
+    - Automated E2E suite must pass before archive; do not archive with E2E marked pending (added by automated-e2e-testing, after sales-invoicing's manual-E2E-pending archive was twice followed by real bugs found post-merge)
 
 projects:
   - path: "."
@@ -52,3 +53,6 @@ projects:
     stack: "React 19 / Vite / JavaScript"
     test_command: "npm test"
     build_command: "npm run build"
+    # Full-stack Playwright suite (automated-e2e-testing PR2) — separate from
+    # `npm test` (Vitest, unit-only). Needs Docker running; see frontend/e2e/README.md.
+    e2e_test_command: "npm run test:e2e"

@@ -129,3 +129,53 @@ None blocking, beyond Deviations #2 (real incident, fixed and disclosed) and #4 
 
 ### Status
 2/2 PR2 tasks complete. Ready for PR3 (CI + archive gate).
+
+---
+
+## PR3 — CI + Pre-Archive Gate: DONE
+
+**Mode**: Strict TDD (infra/config — no application code; verification is the CI run itself)
+
+### Completed Tasks
+- [x] 3.1 `.github/workflows/e2e.yml`: 3 jobs (`backend`, `frontend-unit`, `e2e-full-stack`).
+- [x] 3.2 Revised — no explicit `testcontainers-java` version pin (see Deviations).
+- [x] 3.3 `rules.archive` entry added to `openspec/config.yaml`; `e2e_test_command` added to the frontend project entry.
+- [x] 3.4 Verified: [PR3's own first CI run](https://github.com/JoaoHiga/store-manager/actions/runs/35019328227) — all 3 jobs green, after one real fix (see Deviations).
+
+### Files Changed
+| File | Action | What Was Done |
+|------|--------|----------------|
+| `.github/workflows/e2e.yml` | Created | 3-job CI workflow |
+| `openspec/config.yaml` | Modified | New `rules.archive` entry, `e2e_test_command` added |
+| `frontend/playwright.config.js` | Modified | Added `reporter: [['list'], ['html', ...]]` for CI failure artifacts |
+| `frontend/e2e/start-backend.sh` | Modified | Install `application` module before `spring-boot:run` (see Deviations) |
+
+### Work Unit Evidence
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | The workflow itself, run twice on PR3: first attempt failed (`e2e-full-stack` job), second attempt (after the fix below) — all 3 jobs green |
+| Runtime harness command/scenario and exact result | Real GitHub Actions `ubuntu-latest` runner, both runs observed live via `gh run watch` |
+| Rollback boundary | All 4 files independently revertable; the workflow and gate rule have zero effect on PR1/PR2's own code |
+
+### Deviations from Design
+
+1. **No `testcontainers-java` version pin** (task 3.2, revised in the tasks artifact before implementation) — the Docker-29.x workaround already lives inside `SaleFlowE2ETest` itself (PR1), independent of which version resolves.
+
+2. **Real CI failure, found and fixed on this PR's own first run**: `start-backend.sh` ran `mvn -f infrastructure/pom.xml spring-boot:run` directly, which had only ever been tested on a local machine that already had the `application` module jar pre-installed in `~/.m2` from an unrelated earlier session. On CI's fresh checkout, that dependency isn't there — the webServer process died immediately with no diagnosable output (Playwright reported only "Process from config.webServer was not able to start. Exit code: 1", no Maven error text at all). **Fix**: added `mvn -f pom.xml -pl application -am install -DskipTests -q` before `spring-boot:run`, plus explicit progress `echo`s so a future failure at this stage is diagnosable from the CI log instead of silent. Verified: this PR's second CI run passed all 3 jobs.
+
+3. **The local Docker-29.x incompatibility (PR1) did not reproduce on `ubuntu-latest`** — the `backend` job passed cleanly with the `api.version=1.44` workaround present but apparently unneeded there (GitHub's runner evidently doesn't run the specific Docker Engine version that triggered it locally). Left the workaround in place since it's harmless either way and protects any contributor whose local Docker happens to be on a newer version.
+
+### Issues Found
+None blocking — both real issues hit during this PR (GitHub OAuth token missing the `workflow` scope to push `.github/workflows/*`, and the missing-dependency CI failure) were found and resolved before this PR's own CI went green.
+
+### Remaining Tasks
+None — all 3 PRs of `automated-e2e-testing` are implemented and each has a green CI/test run. Ready for `sdd-verify`.
+
+### Workload / PR Boundary
+- Mode: chained PR slice (stacked-to-main), branched from PR2's branch
+- Current work unit: PR3 — CI + archive gate
+- Boundary: starts from PR2's tip, ends with a working CI workflow and the archive-gate rule
+- Estimated review budget impact: ~110 lines authored (e2e.yml ~65, config.yaml +3, playwright.config.js +1, start-backend.sh +17 net) — well within the 400-line budget
+
+### Status
+4/4 PR3 tasks complete. All of `automated-e2e-testing`'s planned work (PR1, PR2, PR3) is done. Ready for `sdd-verify`.
