@@ -8,6 +8,18 @@ set -euo pipefail
 DB_PORT="${DB_PORT:-5433}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
+# Local, gitignored NubeFacT sandbox credentials (see .env.nubefact.example
+# at the repo root) — never required: without it, NUBEFACT_API_TOKEN stays
+# empty and every voucher issuance degrades to PENDING (IssueVoucherForSaleUseCase's
+# own contract), which is exactly what this suite already asserts against.
+if [ -f "$REPO_ROOT/.env.nubefact.local" ]; then
+  echo "[start-backend] loading NubeFacT credentials from .env.nubefact.local"
+  set -a
+  # shellcheck source=/dev/null
+  source "$REPO_ROOT/.env.nubefact.local"
+  set +a
+fi
+
 until (exec 3<>"/dev/tcp/localhost/${DB_PORT}") 2>/dev/null; do
   sleep 0.5
 done

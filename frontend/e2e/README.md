@@ -20,12 +20,26 @@ backend in isolation with Testcontainers; this covers the full path through a re
   test wrote a real sale into the real dev database — see `apply-progress.md`'s PR2 Deviations.)
   The Postgres entry (port 5433) is the one exception: it uses `reuseExistingServer: true`, safely —
   see Known limitation below for why.
-- `NUBEFACT_API_TOKEN` — optional. Without it, `IssueVoucherForSaleUseCase` still completes every
-  sale (its own contract: an issuance failure never blocks or rolls back the sale) and persists the
-  voucher as `PENDING` instead of `ACCEPTED`. This suite's assertions only check that the **chosen
-  voucher type** (BOLETA/FACTURA) round-trips correctly through the real request → real response →
-  real list — not that NubeFacT itself accepts the document — so it passes either way. Set this env
-  var before `npm run test:e2e` if you want to test against a real NubeFacT sandbox account.
+- `NUBEFACT_API_TOKEN` / `NUBEFACT_BASE_URL` — optional. Without them, `IssueVoucherForSaleUseCase`
+  still completes every sale (its own contract: an issuance failure never blocks or rolls back the
+  sale) and persists the voucher as `PENDING` instead of `ACCEPTED`. This suite's assertions only
+  check that the **chosen voucher type** (BOLETA/FACTURA) round-trips correctly through the real
+  request → real response → real list — not that NubeFacT itself accepts the document — so it
+  passes either way.
+
+  To test against a real NubeFacT sandbox account locally, without ever typing the token into a
+  chat or shell history: create `.env.nubefact.local` at the repo root (that exact filename is
+  gitignored) with:
+
+  ```
+  NUBEFACT_API_TOKEN=your-real-token
+  NUBEFACT_BASE_URL=your-real-sandbox-url
+  ```
+
+  `start-backend.sh` sources it automatically before starting the backend; nothing else to export
+  or configure. For CI, add
+  `NUBEFACT_API_TOKEN` as a repository secret instead (`Settings → Secrets and variables → Actions`)
+  — `.github/workflows/e2e.yml` already forwards it.
 
 ## Running
 
