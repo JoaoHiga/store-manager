@@ -1,6 +1,7 @@
 package com.storemanager.invoicing.usecase;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.storemanager.invoicing.domain.Voucher;
 import com.storemanager.invoicing.domain.VoucherStatus;
@@ -34,33 +35,39 @@ class IssueVoucherForSaleUseCaseTest {
     }
 
     @Test
-    void aRucBuyerProducesAFactura() {
+    void aFacturaRequestedForARucBuyerSucceedsProducingAFactura() {
         invoicingProvider.alwaysAccept();
 
-        Voucher voucher = useCase.execute(saleFor("RUC", "20131312955"));
+        Voucher voucher = useCase.execute(saleFor("RUC", "20131312955"), VoucherType.FACTURA);
 
         assertThat(voucher.getType()).isEqualTo(VoucherType.FACTURA);
     }
 
     @Test
-    void aDniBuyerProducesABoleta() {
+    void aBoletaRequestedForADniBuyerSucceedsProducingABoleta() {
         invoicingProvider.alwaysAccept();
 
-        Voucher voucher = useCase.execute(saleFor("DNI", "12345678"));
+        Voucher voucher = useCase.execute(saleFor("DNI", "12345678"), VoucherType.BOLETA);
 
         assertThat(voucher.getType()).isEqualTo(VoucherType.BOLETA);
     }
 
     @Test
-    void aSaleWithNoBuyerDocumentStillResolvesToBoleta() {
-        // Regression proof for buyer-identification-hardening: determineType's existing
-        // "RUC".equalsIgnoreCase(buyerDocumentType) was already null-safe (a String literal
-        // receiver never NPEs on a null argument, per design.md's Architecture Decisions) — this
-        // test proves that behavior wasn't accidentally broken while Sale/Voucher were relaxed to
-        // accept a null buyer reference.
+    void aBoletaRequestedForARucBuyerSucceedsProducingABoleta() {
+        // The behavior change: a RUC buyer is no longer forced into a factura — boleta is a
+        // valid explicit choice for any buyer document type, RUC included (design.md's Data Flow).
         invoicingProvider.alwaysAccept();
 
-        Voucher voucher = useCase.execute(saleFor(null, null));
+        Voucher voucher = useCase.execute(saleFor("RUC", "20131312955"), VoucherType.BOLETA);
+
+        assertThat(voucher.getType()).isEqualTo(VoucherType.BOLETA);
+    }
+
+    @Test
+    void aBoletaRequestedWithNoBuyerDocumentStillSucceeds() {
+        invoicingProvider.alwaysAccept();
+
+        Voucher voucher = useCase.execute(saleFor(null, null), VoucherType.BOLETA);
 
         assertThat(voucher.getType()).isEqualTo(VoucherType.BOLETA);
         assertThat(voucher.getBuyerDocumentType()).isNull();
@@ -68,10 +75,38 @@ class IssueVoucherForSaleUseCaseTest {
     }
 
     @Test
+    void aFacturaRequestedForADniBuyerIsRejected() {
+        assertThatThrownBy(() -> useCase.execute(saleFor("DNI", "12345678"), VoucherType.FACTURA))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Factura requires a RUC buyer document");
+    }
+
+    @Test
+    void aFacturaRequestedForACeBuyerIsRejected() {
+        assertThatThrownBy(() -> useCase.execute(saleFor("CE", "AB1234567"), VoucherType.FACTURA))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Factura requires a RUC buyer document");
+    }
+
+    @Test
+    void aFacturaRequestedForAPasaporteBuyerIsRejected() {
+        assertThatThrownBy(() -> useCase.execute(saleFor("PASAPORTE", "AB1234567"), VoucherType.FACTURA))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Factura requires a RUC buyer document");
+    }
+
+    @Test
+    void aFacturaRequestedWithNoBuyerDocumentIsRejected() {
+        assertThatThrownBy(() -> useCase.execute(saleFor(null, null), VoucherType.FACTURA))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Factura requires a RUC buyer document");
+    }
+
+    @Test
     void voucherAcceptedOnFirstAttemptIsPersistedAcceptedWithLinksAndHash() {
         invoicingProvider.alwaysAccept();
 
-        Voucher voucher = useCase.execute(saleFor("DNI", "12345678"));
+        Voucher voucher = useCase.execute(saleFor("DNI", "12345678"), VoucherType.BOLETA);
 
         assertThat(voucher.getId()).isNotNull();
         assertThat(voucher.getStatus()).isEqualTo(VoucherStatus.ACCEPTED);
@@ -86,7 +121,7 @@ class IssueVoucherForSaleUseCaseTest {
     void saleCompletesAsPendingWhenTheProviderTimesOutOrIsUnreachable() {
         invoicingProvider.alwaysThrow();
 
-        Voucher voucher = useCase.execute(saleFor("DNI", "12345678"));
+        Voucher voucher = useCase.execute(saleFor("DNI", "12345678"), VoucherType.BOLETA);
 
         assertThat(voucher.getStatus()).isEqualTo(VoucherStatus.PENDING);
         assertThat(voucher.getRejectionReason()).isNotBlank();
@@ -96,7 +131,7 @@ class IssueVoucherForSaleUseCaseTest {
     void saleCompletesAsPendingWithReasonRetainedWhenSunatRejects() {
         invoicingProvider.alwaysReject("Numero de documento del cliente invalido");
 
-        Voucher voucher = useCase.execute(saleFor("RUC", "20131312955"));
+        Voucher voucher = useCase.execute(saleFor("RUC", "20131312955"), VoucherType.FACTURA);
 
         assertThat(voucher.getStatus()).isEqualTo(VoucherStatus.PENDING);
         assertThat(voucher.getRejectionReason()).isEqualTo("Numero de documento del cliente invalido");
@@ -107,7 +142,7 @@ class IssueVoucherForSaleUseCaseTest {
         invoicingProvider.alwaysAccept();
         Sale sale = saleFor("DNI", "12345678");
 
-        Voucher voucher = useCase.execute(sale);
+        Voucher voucher = useCase.execute(sale, VoucherType.BOLETA);
 
         assertThat(voucher.getSaleId()).isEqualTo(sale.getId());
     }

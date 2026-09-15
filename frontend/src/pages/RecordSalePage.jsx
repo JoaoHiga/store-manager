@@ -39,8 +39,22 @@ export function RecordSalePage() {
   const [buyerDocumentType, setBuyerDocumentType] = useState(BUYER_DOCUMENT_TYPES[0]);
   const [buyerDocumentNumber, setBuyerDocumentNumber] = useState('');
   const [noDocument, setNoDocument] = useState(false);
+  const [voucherType, setVoucherType] = useState('BOLETA');
   const [formError, setFormError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+
+  const isFactura = voucherType === 'FACTURA';
+
+  function handleVoucherTypeChange(event) {
+    const value = event.target.value;
+    setVoucherType(value);
+    if (value === 'FACTURA') {
+      // Factura requires a RUC buyer (backend-enforced; see IssueVoucherForSaleUseCase) — force
+      // it here too so the form never lets a user submit an invalid combination.
+      setBuyerDocumentType('RUC');
+      setNoDocument(false);
+    }
+  }
 
   const runningTotal = lines.reduce((sum, line) => {
     const product = availableProducts.find((candidate) => String(candidate.id) === String(line.productId));
@@ -108,6 +122,7 @@ export function RecordSalePage() {
     recordMutation.mutate({
       items: lines.map((line) => ({ productId: Number(line.productId), quantity: Number(line.quantity) })),
       ...(noDocument ? {} : { buyerDocumentType, buyerDocumentNumber }),
+      voucherType,
     });
   }
 
@@ -151,11 +166,20 @@ export function RecordSalePage() {
         </Button>
 
         <div className="form-field">
+          <label htmlFor="voucherType">Tipo de comprobante</label>
+          <select id="voucherType" value={voucherType} onChange={handleVoucherTypeChange}>
+            <option value="BOLETA">Boleta</option>
+            <option value="FACTURA">Factura</option>
+          </select>
+        </div>
+
+        <div className="form-field">
           <label htmlFor="noDocument">
             <input
               type="checkbox"
               id="noDocument"
               checked={noDocument}
+              disabled={isFactura}
               onChange={(event) => setNoDocument(event.target.checked)}
             />
             {' '}Sin documento (boleta simple, ventas menores a S/ {BOLETA_SIMPLE_THRESHOLD})
@@ -172,6 +196,7 @@ export function RecordSalePage() {
               <select
                 id="buyerDocumentType"
                 value={buyerDocumentType}
+                disabled={isFactura}
                 onChange={(event) => setBuyerDocumentType(event.target.value)}
               >
                 {BUYER_DOCUMENT_TYPES.map((type) => (

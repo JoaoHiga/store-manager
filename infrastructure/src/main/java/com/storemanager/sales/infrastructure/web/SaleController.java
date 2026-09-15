@@ -60,7 +60,9 @@ public class SaleController {
     public SaleResponse record(@Valid @RequestBody RecordSaleRequest request) {
         List<SaleLineItemRequest> lines =
                 request.items().stream().map(item -> new SaleLineItemRequest(item.productId(), item.quantity())).toList();
-        Sale sale = recordSaleUseCase.execute(lines, request.buyerDocumentType(), request.buyerDocumentNumber());
+        Sale sale =
+                recordSaleUseCase.execute(
+                        lines, request.buyerDocumentType(), request.buyerDocumentNumber(), request.voucherType());
         return toResponse(sale);
     }
 

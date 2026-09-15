@@ -54,6 +54,7 @@ describe('RecordSalePage', () => {
         items: [{ productId: 1, quantity: 2 }],
         buyerDocumentType: 'DNI',
         buyerDocumentNumber: '12345678',
+        voucherType: 'BOLETA',
       }),
     );
     expect(await screen.findByText('Venta #7 registrada correctamente')).toBeInTheDocument();
@@ -145,6 +146,7 @@ describe('RecordSalePage', () => {
     expect(payload.items).toEqual([{ productId: 1, quantity: 1 }]);
     expect(payload).not.toHaveProperty('buyerDocumentType');
     expect(payload).not.toHaveProperty('buyerDocumentNumber');
+    expect(payload.voucherType).toBe('BOLETA');
   });
 
   it('hides the document type and number fields once "Sin documento" is checked', async () => {
@@ -171,5 +173,69 @@ describe('RecordSalePage', () => {
 
     await waitFor(() => expect(salesApi.recordSale).toHaveBeenCalled());
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('offers Boleta and Factura as voucher type options, defaulting to Boleta', async () => {
+    catalogApi.listProducts.mockResolvedValue([iphone]);
+    renderPage();
+
+    await screen.findByText('iPhone 12 (3 en stock)');
+    const voucherTypeSelect = screen.getByLabelText('Tipo de comprobante');
+
+    expect(within(voucherTypeSelect).getByText('Boleta')).toBeInTheDocument();
+    expect(within(voucherTypeSelect).getByText('Factura')).toBeInTheDocument();
+    expect(voucherTypeSelect).toHaveValue('BOLETA');
+  });
+
+  it('selecting Factura forces the document type to RUC and disables it and "Sin documento"', async () => {
+    catalogApi.listProducts.mockResolvedValue([iphone]);
+    renderPage();
+
+    await screen.findByText('iPhone 12 (3 en stock)');
+    await userEvent.selectOptions(screen.getByLabelText('Tipo de comprobante'), 'FACTURA');
+
+    expect(screen.getByLabelText('Tipo de documento')).toHaveValue('RUC');
+    expect(screen.getByLabelText('Tipo de documento')).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: /sin documento/i })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: /sin documento/i })).not.toBeChecked();
+  });
+
+  it('selecting Boleta after Factura re-enables every document type option including RUC', async () => {
+    catalogApi.listProducts.mockResolvedValue([iphone]);
+    renderPage();
+
+    await screen.findByText('iPhone 12 (3 en stock)');
+    await userEvent.selectOptions(screen.getByLabelText('Tipo de comprobante'), 'FACTURA');
+    await userEvent.selectOptions(screen.getByLabelText('Tipo de comprobante'), 'BOLETA');
+
+    const typeSelect = screen.getByLabelText('Tipo de documento');
+    expect(typeSelect).not.toBeDisabled();
+    expect(within(typeSelect).getByText('DNI')).toBeInTheDocument();
+    expect(within(typeSelect).getByText('RUC')).toBeInTheDocument();
+    expect(within(typeSelect).getByText('CE')).toBeInTheDocument();
+    expect(within(typeSelect).getByText('PASAPORTE')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /sin documento/i })).not.toBeDisabled();
+  });
+
+  it('submits a Factura for a RUC buyer including the voucherType in the payload', async () => {
+    catalogApi.listProducts.mockResolvedValue([iphone]);
+    salesApi.recordSale.mockResolvedValue({ id: 12, status: 'COMPLETED' });
+    renderPage();
+
+    await screen.findByText('iPhone 12 (3 en stock)');
+    await userEvent.selectOptions(screen.getByLabelText('Producto'), '1');
+    await userEvent.type(screen.getByLabelText('Cantidad'), '1');
+    await userEvent.selectOptions(screen.getByLabelText('Tipo de comprobante'), 'FACTURA');
+    await userEvent.type(screen.getByLabelText('Número de documento'), '20131312955');
+    await userEvent.click(screen.getByRole('button', { name: 'Registrar venta' }));
+
+    await waitFor(() =>
+      expect(salesApi.recordSale).toHaveBeenCalledWith({
+        items: [{ productId: 1, quantity: 1 }],
+        buyerDocumentType: 'RUC',
+        buyerDocumentNumber: '20131312955',
+        voucherType: 'FACTURA',
+      }),
+    );
   });
 });

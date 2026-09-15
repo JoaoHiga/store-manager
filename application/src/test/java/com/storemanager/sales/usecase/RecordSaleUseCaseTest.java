@@ -6,6 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.storemanager.catalog.domain.Product;
 import com.storemanager.invoicing.domain.Voucher;
 import com.storemanager.invoicing.domain.VoucherStatus;
+import com.storemanager.invoicing.domain.VoucherType;
+import com.storemanager.invoicing.domain.port.InvoicingProvider;
+import com.storemanager.invoicing.domain.port.VoucherRepositoryPort;
 import com.storemanager.invoicing.usecase.IssueVoucherForSaleUseCase;
 import com.storemanager.sales.domain.Sale;
 import com.storemanager.sales.domain.SaleStatus;
@@ -41,7 +44,8 @@ class RecordSaleUseCaseTest {
     void recordsAValidSaleSnapshottingPriceAndDescriptionAndComputingTheTotal() {
         Sale sale =
                 useCase.execute(
-                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678");
+                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678",
+                        VoucherType.BOLETA);
 
         assertThat(sale.getId()).isNotNull();
         assertThat(sale.getStatus()).isEqualTo(SaleStatus.COMPLETED);
@@ -64,7 +68,8 @@ class RecordSaleUseCaseTest {
                                 new SaleLineItemRequest(activeProduct.getId(), 2),
                                 new SaleLineItemRequest(secondProduct.getId(), 3)),
                         "DNI",
-                        "12345678");
+                        "12345678",
+                        VoucherType.BOLETA);
 
         assertThat(sale.getTotal()).isEqualByComparingTo("759.70");
     }
@@ -72,7 +77,10 @@ class RecordSaleUseCaseTest {
     @Test
     void rejectsASaleReferencingANonexistentProduct() {
         assertThatThrownBy(
-                        () -> useCase.execute(List.of(new SaleLineItemRequest(999L, 1)), "DNI", "12345678"))
+                        () ->
+                                useCase.execute(
+                                        List.of(new SaleLineItemRequest(999L, 1)), "DNI", "12345678",
+                                        VoucherType.BOLETA))
                 .isInstanceOf(ProductNotFoundException.class);
     }
 
@@ -84,7 +92,7 @@ class RecordSaleUseCaseTest {
                         () ->
                                 useCase.execute(
                                         List.of(new SaleLineItemRequest(inactiveProduct.getId(), 1)), "DNI",
-                                        "12345678"))
+                                        "12345678", VoucherType.BOLETA))
                 .isInstanceOf(InactiveProductException.class);
     }
 
@@ -94,7 +102,7 @@ class RecordSaleUseCaseTest {
                         () ->
                                 useCase.execute(
                                         List.of(new SaleLineItemRequest(activeProduct.getId(), 4)), "DNI",
-                                        "12345678"))
+                                        "12345678", VoucherType.BOLETA))
                 .isInstanceOf(InsufficientStockException.class);
     }
 
@@ -102,7 +110,9 @@ class RecordSaleUseCaseTest {
     void recordsASaleWithNoBuyerReferenceWhenTheTotalIsBelowTheBoletaSimpleThreshold() {
         // activeProduct's salePrice is 350; one unit keeps the total under S/700.
         Sale sale =
-                useCase.execute(List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), null, null);
+                useCase.execute(
+                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), null, null,
+                        VoucherType.BOLETA);
 
         assertThat(sale.getBuyerDocumentType()).isNull();
         assertThat(sale.getBuyerDocumentNumber()).isNull();
@@ -114,13 +124,15 @@ class RecordSaleUseCaseTest {
         assertThatThrownBy(
                         () ->
                                 useCase.execute(
-                                        List.of(new SaleLineItemRequest(activeProduct.getId(), 2)), null, null))
+                                        List.of(new SaleLineItemRequest(activeProduct.getId(), 2)), null, null,
+                                        VoucherType.BOLETA))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void decrementsProductStockAfterRecordingASale() {
-        useCase.execute(List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678");
+        useCase.execute(
+                List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678", VoucherType.BOLETA);
 
         Product reloaded = productRepository.findById(activeProduct.getId()).orElseThrow();
         assertThat(reloaded.getStockQuantity()).isEqualTo(2);
@@ -136,19 +148,21 @@ class RecordSaleUseCaseTest {
                                                 new SaleLineItemRequest(activeProduct.getId(), 2),
                                                 new SaleLineItemRequest(activeProduct.getId(), 2)),
                                         "DNI",
-                                        "12345678"))
+                                        "12345678",
+                                        VoucherType.BOLETA))
                 .isInstanceOf(InsufficientStockException.class);
     }
 
     @Test
     void rejectsASecondSaleThatWouldExceedStockRemainingAfterAPriorSale() {
-        useCase.execute(List.of(new SaleLineItemRequest(activeProduct.getId(), 2)), "DNI", "12345678");
+        useCase.execute(
+                List.of(new SaleLineItemRequest(activeProduct.getId(), 2)), "DNI", "12345678", VoucherType.BOLETA);
 
         assertThatThrownBy(
                         () ->
                                 useCase.execute(
                                         List.of(new SaleLineItemRequest(activeProduct.getId(), 2)), "DNI",
-                                        "12345678"))
+                                        "12345678", VoucherType.BOLETA))
                 .isInstanceOf(InsufficientStockException.class);
     }
 
@@ -156,7 +170,8 @@ class RecordSaleUseCaseTest {
     void aLaterProductPriceChangeDoesNotAffectAnAlreadyRecordedSalesLineItem() {
         Sale sale =
                 useCase.execute(
-                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678");
+                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678",
+                        VoucherType.BOLETA);
         assertThat(sale.getItems().get(0).getUnitPrice()).isEqualByComparingTo("350");
 
         productRepository.save(
@@ -173,7 +188,9 @@ class RecordSaleUseCaseTest {
         invoicingProvider.alwaysAccept();
 
         Sale sale =
-                useCase.execute(List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678");
+                useCase.execute(
+                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678",
+                        VoucherType.BOLETA);
 
         Voucher voucher = voucherRepository.findBySaleId(sale.getId()).orElseThrow();
         assertThat(voucher.getStatus()).isEqualTo(VoucherStatus.ACCEPTED);
@@ -185,7 +202,9 @@ class RecordSaleUseCaseTest {
         invoicingProvider.alwaysReject("Numero de documento invalido");
 
         Sale sale =
-                useCase.execute(List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678");
+                useCase.execute(
+                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678",
+                        VoucherType.BOLETA);
 
         assertThat(sale.getStatus()).isEqualTo(SaleStatus.COMPLETED);
         Voucher voucher = voucherRepository.findBySaleId(sale.getId()).orElseThrow();
@@ -197,10 +216,105 @@ class RecordSaleUseCaseTest {
         invoicingProvider.alwaysThrow();
 
         Sale sale =
-                useCase.execute(List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678");
+                useCase.execute(
+                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678",
+                        VoucherType.BOLETA);
 
         assertThat(sale.getStatus()).isEqualTo(SaleStatus.COMPLETED);
         Voucher voucher = voucherRepository.findBySaleId(sale.getId()).orElseThrow();
         assertThat(voucher.getStatus()).isEqualTo(VoucherStatus.PENDING);
+    }
+
+    @Test
+    void aFacturaRequestForARucBuyerProducesAFacturaVoucher() {
+        invoicingProvider.alwaysAccept();
+
+        Sale sale =
+                useCase.execute(
+                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "RUC", "20131312955",
+                        VoucherType.FACTURA);
+
+        Voucher voucher = voucherRepository.findBySaleId(sale.getId()).orElseThrow();
+        assertThat(voucher.getType()).isEqualTo(VoucherType.FACTURA);
+    }
+
+    @Test
+    void aFacturaRequestForANonRucBuyerIsRejectedAndNoSaleIsRecorded() {
+        assertThatThrownBy(
+                        () ->
+                                useCase.execute(
+                                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI",
+                                        "12345678", VoucherType.FACTURA))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Factura requires a RUC buyer document");
+
+        // The rejection must happen before saleRepository.save — there's no @Transactional
+        // boundary around this use case to roll a premature save back (found by RDD's
+        // R3-voucher-validation-after-sale-persist).
+        assertThat(saleRepository.findAll()).isEmpty();
+        assertThat(productRepository.findById(activeProduct.getId()).orElseThrow().getStockQuantity())
+                .isEqualTo(activeProduct.getStockQuantity());
+    }
+
+    @Test
+    void aNullVoucherTypeIsRejectedBeforeAnySaleIsRecorded() {
+        // RecordSaleRequest's @NotNull keeps this from happening over the REST API, but this use
+        // case is called directly by tests and any future caller too, so it must not rely on that
+        // DTO-layer guard alone — otherwise a null voucherType reaches Voucher.createNew's own
+        // null check AFTER saleRepository.save, leaving the same kind of phantom sale that
+        // R3-voucher-validation-after-sale-persist already found for the FACTURA/RUC case (found
+        // by its follow-up, R3-null-voucher-type-unguarded).
+        assertThatThrownBy(
+                        () ->
+                                useCase.execute(
+                                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI",
+                                        "12345678", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Voucher type is required");
+
+        assertThat(saleRepository.findAll()).isEmpty();
+        assertThat(productRepository.findById(activeProduct.getId()).orElseThrow().getStockQuantity())
+                .isEqualTo(activeProduct.getStockQuantity());
+    }
+
+    @Test
+    void passesTheRequestedVoucherTypeThroughToIssueVoucherForSaleUseCaseUnchanged() {
+        RecordingIssueVoucherForSaleUseCase recordingIssueVoucherForSaleUseCase =
+                new RecordingIssueVoucherForSaleUseCase(voucherRepository, invoicingProvider);
+        RecordSaleUseCase useCaseWithRecordingIssuance =
+                new RecordSaleUseCase(saleRepository, productRepository, recordingIssueVoucherForSaleUseCase);
+        invoicingProvider.alwaysAccept();
+
+        Sale sale =
+                useCaseWithRecordingIssuance.execute(
+                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "RUC", "20131312955",
+                        VoucherType.FACTURA);
+
+        assertThat(recordingIssueVoucherForSaleUseCase.capturedRequestedType).isEqualTo(VoucherType.FACTURA);
+        assertThat(recordingIssueVoucherForSaleUseCase.capturedSale.getId()).isEqualTo(sale.getId());
+    }
+
+    /**
+     * A recording test double for {@link IssueVoucherForSaleUseCase} — a concrete class, not a
+     * port, so it's subclassed (rather than mocked) to verify {@code RecordSaleUseCase} forwards
+     * the requested {@link VoucherType} unchanged, consistent with this module's existing
+     * hand-written fakes (e.g. {@code FakeInvoicingProvider}) instead of adding a mocking
+     * dependency to a module that must not depend on any framework.
+     */
+    private static final class RecordingIssueVoucherForSaleUseCase extends IssueVoucherForSaleUseCase {
+        private Sale capturedSale;
+        private VoucherType capturedRequestedType;
+
+        RecordingIssueVoucherForSaleUseCase(
+                VoucherRepositoryPort voucherRepository, InvoicingProvider invoicingProvider) {
+            super(voucherRepository, invoicingProvider);
+        }
+
+        @Override
+        public Voucher execute(Sale sale, VoucherType requestedType) {
+            this.capturedSale = sale;
+            this.capturedRequestedType = requestedType;
+            return super.execute(sale, requestedType);
+        }
     }
 }

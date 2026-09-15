@@ -8,18 +8,22 @@ Issue SUNAT-compliant electronic vouchers (boleta/factura) for completed sales t
 
 ### Requirement: Voucher Type Determination
 
-The system MUST determine the voucher type from the sale's buyer document type: a buyer identified by RUC MUST produce a factura; any other supported document type, or no document at all (a "boleta simple" sale under S/700), MUST produce a boleta. For a boleta simple, the outbound request to the OSE MUST carry no buyer document type/number rather than a placeholder value.
+The system MUST determine the voucher type from an explicit `voucherType` choice made at sale-recording time, not derive it from the buyer's document type. A `FACTURA` MUST be rejected unless the buyer's document type is RUC. A `BOLETA` MUST be accepted regardless of the buyer's document type — including RUC, or no document at all (a "boleta simple" sale under S/700). For a boleta simple, the outbound request to the OSE MUST carry no buyer document type/number rather than a placeholder value.
 
-#### Scenario: A RUC buyer produces a factura
-- WHEN a sale is recorded with buyer `documentType: RUC`
+#### Scenario: A RUC buyer explicitly requesting a factura succeeds
+- WHEN a sale is recorded with buyer `documentType: RUC` and `voucherType: FACTURA`
 - THEN the resulting voucher's type is `FACTURA`
 
-#### Scenario: A DNI buyer produces a boleta
-- WHEN a sale is recorded with buyer `documentType: DNI`
+#### Scenario: A RUC buyer explicitly requesting a boleta succeeds
+- WHEN a sale is recorded with buyer `documentType: RUC` and `voucherType: BOLETA`
 - THEN the resulting voucher's type is `BOLETA`
 
+#### Scenario: A non-RUC buyer requesting a factura is rejected
+- WHEN a sale is recorded with buyer `documentType: DNI` (or CE, Pasaporte, or no document) and `voucherType: FACTURA`
+- THEN the system MUST reject the request with a validation error, and no voucher is issued
+
 #### Scenario: A boleta simple (no buyer document) produces a boleta
-- WHEN a sale under S/700 is recorded with no buyer document
+- WHEN a sale under S/700 is recorded with no buyer document and `voucherType: BOLETA`
 - THEN the resulting voucher's type is `BOLETA`, with `null` buyer document type/number, and the OSE request maps this to its "varios/menor cuantía" document-type code
 
 ### Requirement: Voucher Issuance via OSE

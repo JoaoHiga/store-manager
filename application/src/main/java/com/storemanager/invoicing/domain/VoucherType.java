@@ -1,10 +1,10 @@
 package com.storemanager.invoicing.domain;
 
 /**
- * The kind of SUNAT electronic document a {@link Voucher} represents. Determined from the sale's
- * buyer document type: a RUC buyer (a company) gets a {@code FACTURA}; any other supported
- * document type (e.g. DNI) gets a {@code BOLETA} — see design.md and spec.md, "Voucher Type
- * Determination".
+ * The kind of SUNAT electronic document a {@link Voucher} represents. Chosen explicitly by the
+ * caller at sale-recording time (see design.md and spec.md, "Voucher Type Determination"), not
+ * derived from the buyer's document type: {@code FACTURA} requires a RUC buyer; {@code BOLETA} is
+ * always allowed, including for a RUC buyer.
  */
 public enum VoucherType {
     BOLETA,

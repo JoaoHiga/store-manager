@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.storemanager.catalog.domain.Product;
 import com.storemanager.invoicing.domain.Voucher;
 import com.storemanager.invoicing.domain.VoucherStatus;
+import com.storemanager.invoicing.domain.VoucherType;
 import com.storemanager.invoicing.usecase.IssueVoucherForSaleUseCase;
 import com.storemanager.invoicing.usecase.RetryPendingVoucherUseCase;
 import com.storemanager.invoicing.usecase.VoidSaleUseCase;
@@ -65,7 +66,8 @@ class SalesInvoicingFlowTest {
     }
 
     private Sale recordASale() {
-        return recordSaleUseCase.execute(List.of(new SaleLineItemRequest(productId, 1)), "DNI", "12345678");
+        return recordSaleUseCase.execute(
+                List.of(new SaleLineItemRequest(productId, 1)), "DNI", "12345678", VoucherType.BOLETA);
     }
 
     @Test
