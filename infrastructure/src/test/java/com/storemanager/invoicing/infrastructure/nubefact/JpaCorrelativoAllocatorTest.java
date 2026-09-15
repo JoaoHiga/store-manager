@@ -19,16 +19,16 @@ class JpaCorrelativoAllocatorTest {
 
     @Test
     void firstAllocationForASeriesIsOne() {
-        long observed = allocator.withCorrelativo("B001", correlativo -> correlativo);
+        long observed = allocator.withCorrelativo("BBB1", correlativo -> correlativo);
 
         assertThat(observed).isEqualTo(1L);
     }
 
     @Test
     void secondAllocationForTheSameSeriesContinuesFromThePersistedValue() {
-        allocator.withCorrelativo("F001", correlativo -> correlativo);
+        allocator.withCorrelativo("FFF1", correlativo -> correlativo);
 
-        long second = allocator.withCorrelativo("F001", correlativo -> correlativo);
+        long second = allocator.withCorrelativo("FFF1", correlativo -> correlativo);
 
         assertThat(second).isEqualTo(2L);
     }
@@ -38,21 +38,21 @@ class JpaCorrelativoAllocatorTest {
         assertThatThrownBy(
                         () ->
                                 allocator.withCorrelativo(
-                                        "BC01",
+                                        "BBB1",
                                         correlativo -> {
                                             throw new RuntimeException("simulated network failure");
                                         }))
                 .isInstanceOf(RuntimeException.class);
 
-        long next = allocator.withCorrelativo("BC01", correlativo -> correlativo);
+        long next = allocator.withCorrelativo("BBB1", correlativo -> correlativo);
         assertThat(next).isEqualTo(1L);
     }
 
     @Test
     void differentSeriesAreAllocatedIndependently() {
-        long boleta1 = allocator.withCorrelativo("B001", c -> c);
-        long factura1 = allocator.withCorrelativo("F001", c -> c);
-        long boleta2 = allocator.withCorrelativo("B001", c -> c);
+        long boleta1 = allocator.withCorrelativo("BBB1", c -> c);
+        long factura1 = allocator.withCorrelativo("FFF1", c -> c);
+        long boleta2 = allocator.withCorrelativo("BBB1", c -> c);
 
         assertThat(boleta1).isEqualTo(1L);
         assertThat(factura1).isEqualTo(1L);
@@ -79,13 +79,13 @@ class JpaCorrelativoAllocatorTest {
                 new Thread(
                         () -> {
                             task.run();
-                            results[0] = allocator.withCorrelativo("FC01", c -> sleepAndReturn(c));
+                            results[0] = allocator.withCorrelativo("FFF1", c -> sleepAndReturn(c));
                         });
         Thread t2 =
                 new Thread(
                         () -> {
                             task.run();
-                            results[1] = allocator.withCorrelativo("FC01", c -> sleepAndReturn(c));
+                            results[1] = allocator.withCorrelativo("FFF1", c -> sleepAndReturn(c));
                         });
         t1.start();
         t2.start();
