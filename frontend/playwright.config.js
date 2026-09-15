@@ -10,7 +10,12 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   fullyParallel: false,
-  retries: 0,
+  // Observed real CI flakiness (PR3, post-merge run against main): a
+  // GET /api/sales response occasionally took >30s on a resource-constrained
+  // runner, timing out one scenario while the identical code passed cleanly
+  // on the very next run. One retry in CI absorbs that without masking a
+  // real regression — a genuine bug fails both the run and its retry.
+  retries: process.env.CI ? 1 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'http://localhost:5173',
