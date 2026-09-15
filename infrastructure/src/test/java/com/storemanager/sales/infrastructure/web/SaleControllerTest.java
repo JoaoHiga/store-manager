@@ -70,11 +70,11 @@ class SaleControllerTest {
 
     @Test
     void recordsAValidSaleAndReturns201() throws Exception {
-        when(recordSaleUseCase.execute(anyList(), eq("DNI"), eq("12345678")))
+        when(recordSaleUseCase.execute(anyList(), eq("DNI"), eq("12345678"), eq(VoucherType.BOLETA)))
                 .thenReturn(sampleSale(1L, new BigDecimal("350")));
 
         String requestJson =
-                "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\"}";
+                "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\",\"voucherType\":\"BOLETA\"}";
 
         mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
                 .andExpect(status().isCreated())
@@ -86,75 +86,15 @@ class SaleControllerTest {
 
     @Test
     void rejectsASaleWithNoLineItemsWith400() throws Exception {
-        String requestJson = "{\"items\":[],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\"}";
-
-        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void recordsASaleWithNoBuyerReferenceFor201WhenTheTotalIsBelowTheBoletaSimpleThreshold() throws Exception {
-        when(recordSaleUseCase.execute(anyList(), isNull(), isNull()))
-                .thenReturn(sampleSale(1L, new BigDecimal("50")));
-
-        String requestJson = "{\"items\":[{\"productId\":1,\"quantity\":1}]}";
-
-        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
-                .andExpect(status().isCreated());
-    }
-
-    @Test
-    void rejectsASaleWithNoBuyerReferenceAtOrAboveTheBoletaSimpleThresholdWith400() throws Exception {
-        when(recordSaleUseCase.execute(anyList(), isNull(), isNull()))
-                .thenThrow(new IllegalArgumentException("Buyer document is required for sales of S/ 700.00 or more"));
-
-        String requestJson = "{\"items\":[{\"productId\":1,\"quantity\":5}]}";
-
-        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void rejectsASaleWithAMalformedRucWith400() throws Exception {
-        when(recordSaleUseCase.execute(anyList(), eq("RUC"), eq("99999999999")))
-                .thenThrow(new IllegalArgumentException("Invalid RUC check digit"));
-
         String requestJson =
-                "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"RUC\",\"buyerDocumentNumber\":\"99999999999\"}";
+                "{\"items\":[],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\",\"voucherType\":\"BOLETA\"}";
 
         mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void rejectsASaleWithAMalformedDniWith400() throws Exception {
-        when(recordSaleUseCase.execute(anyList(), eq("DNI"), eq("123")))
-                .thenThrow(new IllegalArgumentException("DNI must be exactly 8 numeric digits"));
-
-        String requestJson =
-                "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"123\"}";
-
-        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void rejectsASaleReferencingANonexistentProductWith400() throws Exception {
-        when(recordSaleUseCase.execute(anyList(), anyString(), anyString()))
-                .thenThrow(new ProductNotFoundException(999L));
-
-        String requestJson =
-                "{\"items\":[{\"productId\":999,\"quantity\":1}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\"}";
-
-        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void rejectsASaleReferencingAnInactiveProductWith400() throws Exception {
-        when(recordSaleUseCase.execute(anyList(), anyString(), anyString()))
-                .thenThrow(new InactiveProductException(1L));
-
+    void rejectsASaleWithMissingVoucherTypeWith400() throws Exception {
         String requestJson =
                 "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\"}";
 
@@ -163,12 +103,109 @@ class SaleControllerTest {
     }
 
     @Test
+    void rejectsAFacturaRequestForANonRucBuyerWith400() throws Exception {
+        when(recordSaleUseCase.execute(anyList(), eq("DNI"), eq("12345678"), eq(VoucherType.FACTURA)))
+                .thenThrow(new IllegalArgumentException("Factura requires a RUC buyer document"));
+
+        String requestJson =
+                "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\",\"voucherType\":\"FACTURA\"}";
+
+        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void recordsABoletaForARucBuyerAndReturns201WithABoletaVoucher() throws Exception {
+        when(recordSaleUseCase.execute(anyList(), eq("RUC"), eq("20131312955"), eq(VoucherType.BOLETA)))
+                .thenReturn(sampleSale(1L, new BigDecimal("900")));
+        when(voucherRepositoryPort.findBySaleId(1L))
+                .thenReturn(Optional.of(sampleVoucher(10L, 1L, VoucherStatus.ACCEPTED)));
+
+        String requestJson =
+                "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"RUC\",\"buyerDocumentNumber\":\"20131312955\",\"voucherType\":\"BOLETA\"}";
+
+        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.voucherStatus").value("ACCEPTED"));
+    }
+
+    @Test
+    void recordsASaleWithNoBuyerReferenceFor201WhenTheTotalIsBelowTheBoletaSimpleThreshold() throws Exception {
+        when(recordSaleUseCase.execute(anyList(), isNull(), isNull(), eq(VoucherType.BOLETA)))
+                .thenReturn(sampleSale(1L, new BigDecimal("50")));
+
+        String requestJson = "{\"items\":[{\"productId\":1,\"quantity\":1}],\"voucherType\":\"BOLETA\"}";
+
+        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void rejectsASaleWithNoBuyerReferenceAtOrAboveTheBoletaSimpleThresholdWith400() throws Exception {
+        when(recordSaleUseCase.execute(anyList(), isNull(), isNull(), eq(VoucherType.BOLETA)))
+                .thenThrow(new IllegalArgumentException("Buyer document is required for sales of S/ 700.00 or more"));
+
+        String requestJson = "{\"items\":[{\"productId\":1,\"quantity\":5}],\"voucherType\":\"BOLETA\"}";
+
+        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsASaleWithAMalformedRucWith400() throws Exception {
+        when(recordSaleUseCase.execute(anyList(), eq("RUC"), eq("99999999999"), eq(VoucherType.FACTURA)))
+                .thenThrow(new IllegalArgumentException("Invalid RUC check digit"));
+
+        String requestJson =
+                "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"RUC\",\"buyerDocumentNumber\":\"99999999999\",\"voucherType\":\"FACTURA\"}";
+
+        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsASaleWithAMalformedDniWith400() throws Exception {
+        when(recordSaleUseCase.execute(anyList(), eq("DNI"), eq("123"), eq(VoucherType.BOLETA)))
+                .thenThrow(new IllegalArgumentException("DNI must be exactly 8 numeric digits"));
+
+        String requestJson =
+                "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"123\",\"voucherType\":\"BOLETA\"}";
+
+        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsASaleReferencingANonexistentProductWith400() throws Exception {
+        when(recordSaleUseCase.execute(anyList(), anyString(), anyString(), eq(VoucherType.BOLETA)))
+                .thenThrow(new ProductNotFoundException(999L));
+
+        String requestJson =
+                "{\"items\":[{\"productId\":999,\"quantity\":1}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\",\"voucherType\":\"BOLETA\"}";
+
+        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsASaleReferencingAnInactiveProductWith400() throws Exception {
+        when(recordSaleUseCase.execute(anyList(), anyString(), anyString(), eq(VoucherType.BOLETA)))
+                .thenThrow(new InactiveProductException(1L));
+
+        String requestJson =
+                "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\",\"voucherType\":\"BOLETA\"}";
+
+        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void rejectsASaleExceedingAvailableStockWith400() throws Exception {
-        when(recordSaleUseCase.execute(anyList(), anyString(), anyString()))
+        when(recordSaleUseCase.execute(anyList(), anyString(), anyString(), eq(VoucherType.BOLETA)))
                 .thenThrow(new InsufficientStockException(1L, 3, 2));
 
         String requestJson =
-                "{\"items\":[{\"productId\":1,\"quantity\":3}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\"}";
+                "{\"items\":[{\"productId\":1,\"quantity\":3}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\",\"voucherType\":\"BOLETA\"}";
 
         mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
                 .andExpect(status().isBadRequest());
@@ -178,11 +215,11 @@ class SaleControllerTest {
     void aPastSalesLineItemPriceIsUnaffectedByALaterCatalogPriceChange() throws Exception {
         // The Sale returned by the (mocked) use case already carries its snapshot price; the
         // controller/DTO layer must surface exactly that stored value, never re-derive one.
-        when(recordSaleUseCase.execute(anyList(), eq("DNI"), eq("12345678")))
+        when(recordSaleUseCase.execute(anyList(), eq("DNI"), eq("12345678"), eq(VoucherType.BOLETA)))
                 .thenReturn(sampleSale(1L, new BigDecimal("350")));
 
         String requestJson =
-                "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\"}";
+                "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\",\"voucherType\":\"BOLETA\"}";
 
         mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
                 .andExpect(jsonPath("$.items[0].unitPrice").value(350));

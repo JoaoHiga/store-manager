@@ -104,6 +104,35 @@ class SaleTest {
     }
 
     @Test
+    void reconstituteAcceptsALegacyMalformedBuyerDocumentWithoutThrowing() {
+        // "00165490fddfgdsgdf" is a real legacy sales.id = 1 value that predates
+        // buyer-identification-hardening's RUC format validation (design.md, Migration/Rollout).
+        Sale sale =
+                Sale.reconstitute(
+                        1L,
+                        List.of(SaleItem.reconstitute(1L, 1L, "iPhone 12", new BigDecimal("900"), 1)),
+                        "RUC",
+                        "00165490fddfgdsgdf",
+                        SaleStatus.COMPLETED,
+                        Instant.now());
+
+        assertThat(sale.getBuyerDocumentType()).isEqualTo("RUC");
+        assertThat(sale.getBuyerDocumentNumber()).isEqualTo("00165490fddfgdsgdf");
+    }
+
+    @Test
+    void createNewStillRejectsTheSameMalformedBuyerDocumentThatReconstituteAccepts() {
+        assertThatThrownBy(
+                        () ->
+                                Sale.createNew(
+                                        List.of(SaleItem.createNew(1L, "iPhone 12", new BigDecimal("900"), 1)),
+                                        "RUC",
+                                        "00165490fddfgdsgdf",
+                                        Instant.now()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void reconstitutesAnExistingSaleKeepingItsIdAndStatus() {
         Instant createdAt = Instant.now();
         Sale sale =

@@ -22,6 +22,14 @@ public final class Sale {
     private final SaleStatus status;
     private final Instant createdAt;
 
+    /**
+     * Enforces only structural invariants (a sale must have at least one line item) — never the
+     * {@code BuyerDocumentValidator} business rule, which is a create-time-only invariant, not a
+     * rehydration check (see design.md, "Second, unrelated fix bundled into this change"). {@link
+     * #createNew} runs that validation itself, right after construction; {@link #reconstitute}
+     * deliberately skips it so a legacy row whose buyer document predates a since-tightened format
+     * rule still loads.
+     */
     private Sale(
             Long id,
             List<SaleItem> items,
@@ -32,17 +40,17 @@ public final class Sale {
         if (items == null || items.isEmpty()) {
             throw new IllegalArgumentException("Sale must have at least one line item");
         }
-        List<SaleItem> copiedItems = List.copyOf(items);
-        BigDecimal computedTotal =
-                copiedItems.stream().map(SaleItem::getSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BuyerDocumentValidator.validate(buyerDocumentType, buyerDocumentNumber, computedTotal);
         this.id = id;
-        this.items = copiedItems;
+        this.items = List.copyOf(items);
         this.buyerDocumentType = blankToNull(buyerDocumentType);
         this.buyerDocumentNumber = blankToNull(buyerDocumentNumber);
         this.status = status;
         this.createdAt = createdAt;
-        this.total = computedTotal;
+        this.total = computeTotal(this.items);
+    }
+
+    private static BigDecimal computeTotal(List<SaleItem> items) {
+        return items.stream().map(SaleItem::getSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**
@@ -56,7 +64,9 @@ public final class Sale {
 
     public static Sale createNew(
             List<SaleItem> items, String buyerDocumentType, String buyerDocumentNumber, Instant now) {
-        return new Sale(null, items, buyerDocumentType, buyerDocumentNumber, SaleStatus.COMPLETED, now);
+        Sale sale = new Sale(null, items, buyerDocumentType, buyerDocumentNumber, SaleStatus.COMPLETED, now);
+        BuyerDocumentValidator.validate(buyerDocumentType, buyerDocumentNumber, sale.getTotal());
+        return sale;
     }
 
     public static Sale reconstitute(

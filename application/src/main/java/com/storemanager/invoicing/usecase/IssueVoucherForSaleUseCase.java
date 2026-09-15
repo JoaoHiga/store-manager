@@ -11,11 +11,14 @@ import java.time.Instant;
 
 /**
  * Issues a voucher for a just-completed sale, per spec.md's "Voucher Type Determination" and
- * "Voucher Issuance via OSE" requirements. A RUC buyer produces a {@code FACTURA}; any other
- * buyer document type produces a {@code BOLETA}. The sale itself always completes regardless of
- * the outcome here: any provider rejection, timeout, or thrown exception is caught and persisted
- * as a {@code PENDING} voucher (retaining the rejection reason) instead of propagating — never
- * blocking or rolling back the sale (see design.md's failure/retry path).
+ * "Voucher Issuance via OSE" requirements. The voucher type is an explicit caller choice (see
+ * design.md, "explicit-voucher-type-selection") rather than derived from the buyer's document
+ * type: the one enforced constraint is that {@code FACTURA} requires a RUC buyer — {@code BOLETA}
+ * is always allowed, regardless of buyer document type (including RUC). The sale itself always
+ * completes regardless of the issuance outcome: any provider rejection, timeout, or thrown
+ * exception is caught and persisted as a {@code PENDING} voucher (retaining the rejection reason)
+ * instead of propagating — never blocking or rolling back the sale (see design.md's
+ * failure/retry path).
  */
 public class IssueVoucherForSaleUseCase {
 
@@ -27,16 +30,19 @@ public class IssueVoucherForSaleUseCase {
         this.invoicingProvider = invoicingProvider;
     }
 
-    public Voucher execute(Sale sale) {
-        VoucherType type = determineType(sale.getBuyerDocumentType());
+    public Voucher execute(Sale sale, VoucherType requestedType) {
+        if (requestedType == VoucherType.FACTURA && !"RUC".equalsIgnoreCase(sale.getBuyerDocumentType())) {
+            throw new IllegalArgumentException("Factura requires a RUC buyer document");
+        }
         Instant now = Instant.now();
         Voucher voucher =
-                Voucher.createNew(sale.getId(), type, sale.getBuyerDocumentType(), sale.getBuyerDocumentNumber(), now);
+                Voucher.createNew(
+                        sale.getId(), requestedType, sale.getBuyerDocumentType(), sale.getBuyerDocumentNumber(), now);
         VoucherRequest request = VoucherRequestMapper.toRequest(sale);
 
         IssuedVoucher issued;
         try {
-            issued = type == VoucherType.FACTURA
+            issued = requestedType == VoucherType.FACTURA
                     ? invoicingProvider.issueFactura(request)
                     : invoicingProvider.issueBoleta(request);
         } catch (RuntimeException ex) {
@@ -50,9 +56,5 @@ public class IssueVoucherForSaleUseCase {
                             issued.hash(), now));
         }
         return voucherRepository.save(voucher.pending(issued.sunatDescription(), now));
-    }
-
-    private VoucherType determineType(String buyerDocumentType) {
-        return "RUC".equalsIgnoreCase(buyerDocumentType) ? VoucherType.FACTURA : VoucherType.BOLETA;
     }
 }

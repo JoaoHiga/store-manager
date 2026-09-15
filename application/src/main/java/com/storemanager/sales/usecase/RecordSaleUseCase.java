@@ -2,6 +2,7 @@ package com.storemanager.sales.usecase;
 
 import com.storemanager.catalog.domain.Product;
 import com.storemanager.catalog.domain.port.ProductRepositoryPort;
+import com.storemanager.invoicing.domain.VoucherType;
 import com.storemanager.invoicing.usecase.IssueVoucherForSaleUseCase;
 import com.storemanager.sales.domain.Sale;
 import com.storemanager.sales.domain.SaleItem;
@@ -50,7 +51,28 @@ public class RecordSaleUseCase {
         this.issueVoucherForSaleUseCase = issueVoucherForSaleUseCase;
     }
 
-    public Sale execute(List<SaleLineItemRequest> lines, String buyerDocumentType, String buyerDocumentNumber) {
+    public Sale execute(
+            List<SaleLineItemRequest> lines,
+            String buyerDocumentType,
+            String buyerDocumentNumber,
+            VoucherType voucherType) {
+        // Fail fast, before any persistence: IssueVoucherForSaleUseCase re-checks the FACTURA/RUC
+        // rule and Voucher.createNew re-checks non-null type, but both run AFTER
+        // saleRepository.save(sale) below, with no surrounding @Transactional boundary to roll
+        // that save back. Checking both here too means a rejected request never leaves a phantom
+        // COMPLETED sale row behind — RecordSaleRequest's @NotNull keeps a null voucherType from
+        // ever reaching here over the REST API, but this use case is also called directly
+        // (unit tests, any future caller), so it must not rely on that DTO-layer guard alone
+        // (found by RDD's R3-voucher-validation-after-sale-persist and its follow-up
+        // R3-null-voucher-type-unguarded — the request's own validation must happen before its
+        // side effects, not after, and must cover every reachable invalid input, not just one).
+        if (voucherType == null) {
+            throw new IllegalArgumentException("Voucher type is required");
+        }
+        if (voucherType == VoucherType.FACTURA && !"RUC".equalsIgnoreCase(buyerDocumentType)) {
+            throw new IllegalArgumentException("Factura requires a RUC buyer document");
+        }
+
         Map<Long, Integer> requestedQuantityByProductId = new LinkedHashMap<>();
         for (SaleLineItemRequest line : lines) {
             requestedQuantityByProductId.merge(line.productId(), line.quantity(), Integer::sum);
@@ -77,7 +99,7 @@ public class RecordSaleUseCase {
         Sale sale = Sale.createNew(items, buyerDocumentType, buyerDocumentNumber, Instant.now());
         Sale saved = saleRepository.save(sale);
 
-        issueVoucherForSaleUseCase.execute(saved);
+        issueVoucherForSaleUseCase.execute(saved, voucherType);
 
         Instant now = Instant.now();
         for (Map.Entry<Long, Integer> requested : requestedQuantityByProductId.entrySet()) {

@@ -88,6 +88,24 @@ class SaleRepositoryAdapterTest {
     }
 
     @Test
+    void aLegacyRowWithAMalformedBuyerDocumentLoadsSuccessfullyViaReconstitute() {
+        // Seeded directly through the JPA entity, bypassing Sale.createNew, to simulate a row
+        // written before buyer-identification-hardening's RUC format validation existed.
+        SaleItemJpaEntity itemEntity =
+                new SaleItemJpaEntity(null, productId, "Usado", new BigDecimal("350"), 1, new BigDecimal("350"));
+        SaleJpaEntity entity =
+                new SaleJpaEntity(
+                        null, "RUC", "00165490fddfgdsgdf", "COMPLETED", new BigDecimal("350"), Instant.now(),
+                        List.of(itemEntity));
+        Long savedId = saleJpaRepository.save(entity).getId();
+
+        Sale found = adapter.findById(savedId).orElseThrow();
+
+        assertThat(found.getBuyerDocumentType()).isEqualTo("RUC");
+        assertThat(found.getBuyerDocumentNumber()).isEqualTo("00165490fddfgdsgdf");
+    }
+
+    @Test
     void aSaleWithNoBuyerDocumentRoundTripsAsNull() {
         Sale saleWithNoDocument =
                 Sale.createNew(
