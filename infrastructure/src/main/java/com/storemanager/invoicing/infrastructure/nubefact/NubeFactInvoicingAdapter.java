@@ -8,6 +8,8 @@ import com.storemanager.invoicing.domain.port.VoucherLineItem;
 import com.storemanager.invoicing.domain.port.VoucherRequest;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -47,9 +49,13 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
 
     private static final Logger log = LoggerFactory.getLogger(NubeFactInvoicingAdapter.class);
 
-    private static final String ISSUE_PATH = "/api/v1/comprobantes";
-    private static final String CONSULT_PATH = "/api/v1/comprobantes/consultar";
-    private static final String VOID_PATH = "/api/v1/comprobantes/anular";
+    // Confirmed against the real sandbox (curl, real account): NubeFacT has ONE endpoint per
+    // client account (the configured base URL already includes that client-specific path), not
+    // separate paths per operation. Every call POSTs to that same URL; the "operacion" field in
+    // the body selects issue/consult/void.
+    private static final String OPERACION_GENERAR_COMPROBANTE = "generar_comprobante";
+    private static final String OPERACION_CONSULTAR_COMPROBANTE = "consultar_comprobante";
+    private static final String OPERACION_GENERAR_ANULACION = "generar_anulacion";
 
     private static final int MAX_DESCRIPTION_LENGTH = 250;
 
@@ -61,6 +67,10 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
     private static final String SERIES_BOLETA = "B001";
     private static final String SERIES_CREDIT_NOTE_FACTURA = "FC01";
     private static final String SERIES_CREDIT_NOTE_BOLETA = "BC01";
+
+    private static final int SUNAT_TRANSACTION_NORMAL = 1;
+    private static final int MONEDA_SOLES = 1;
+    private static final DateTimeFormatter FECHA_DE_EMISION_FORMAT = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
     private static final BigDecimal IGV_PERCENTAGE = new BigDecimal("18.00");
     private static final BigDecimal IGV_MULTIPLIER = new BigDecimal("1.18");
@@ -103,7 +113,7 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
                             buildDocumentBody(
                                     TIPO_NOTA_CREDITO, series, correlativo, null, null, request.total(),
                                     request.lineItems());
-                    NubeFactDocumentResponse response = post(ISSUE_PATH, body);
+                    NubeFactDocumentResponse response = post(body);
                     return toIssuedVoucher(response, series, correlativo);
                 });
     }
@@ -112,8 +122,10 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
     public VoucherStatus checkStatus(String voucherReference) {
         VoucherReferenceParts parts = parseReference(voucherReference);
         NubeFactStatusRequest body =
-                new NubeFactStatusRequest(tipoFromSeries(parts.series()), parts.series(), parts.correlativo());
-        NubeFactDocumentResponse response = post(CONSULT_PATH, body);
+                new NubeFactStatusRequest(
+                        OPERACION_CONSULTAR_COMPROBANTE, tipoFromSeries(parts.series()), parts.series(),
+                        parts.correlativo());
+        NubeFactDocumentResponse response = post(body);
         return response.aceptadaPorSunat() ? VoucherStatus.ACCEPTED : VoucherStatus.PENDING;
     }
 
@@ -121,8 +133,10 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
     public IssuedVoucher voidVoucher(String voucherReference, String reason) {
         VoucherReferenceParts parts = parseReference(voucherReference);
         NubeFactVoidRequest body =
-                new NubeFactVoidRequest(tipoFromSeries(parts.series()), parts.series(), parts.correlativo(), reason);
-        NubeFactDocumentResponse response = post(VOID_PATH, body);
+                new NubeFactVoidRequest(
+                        OPERACION_GENERAR_ANULACION, tipoFromSeries(parts.series()), parts.series(),
+                        parts.correlativo(), reason);
+        NubeFactDocumentResponse response = post(body);
         return toIssuedVoucher(response, parts.series(), parts.correlativo());
     }
 
@@ -141,7 +155,7 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
                                     request.buyerDocumentNumber(),
                                     request.total(),
                                     request.lineItems());
-                    NubeFactDocumentResponse response = post(ISSUE_PATH, body);
+                    NubeFactDocumentResponse response = post(body);
                     return toIssuedVoucher(response, series, correlativo);
                 });
     }
@@ -150,6 +164,11 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
      * Builds the request body shared by every issuance path. Line items are mapped to {@link
      * NubeFactItemRequest} exactly once; the cabecera's {@code total_gravada}/{@code total_igv} are
      * derived from that same mapped list instead of re-deriving the 1.18 split a second time.
+     *
+     * <p>{@code cliente_denominacion} is a placeholder (confirmed against the real sandbox:
+     * NubeFacT rejects a blank/under-3-char denominación) — this project doesn't collect a buyer's
+     * legal name anywhere yet, only their document number. A follow-up SDD change adds a real
+     * RUC/DNI lookup; until then this is a known, deliberate limitation, not a silent guess.
      */
     private NubeFactDocumentRequest buildDocumentBody(
             int tipoDeComprobante,
@@ -165,35 +184,44 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
                 items.stream()
                         .map(item -> item.total().subtract(item.igv()))
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
+        String clienteDenominacion =
+                "Cliente " + (clienteNumeroDeDocumento != null ? clienteNumeroDeDocumento : "Varios");
+        String fechaDeEmision = FECHA_DE_EMISION_FORMAT.format(java.time.LocalDate.now(ZoneOffset.UTC));
         return new NubeFactDocumentRequest(
+                OPERACION_GENERAR_COMPROBANTE,
                 tipoDeComprobante,
                 series,
                 correlativo,
+                SUNAT_TRANSACTION_NORMAL,
                 clienteTipoDeDocumento,
                 clienteNumeroDeDocumento,
+                clienteDenominacion,
+                "-",
+                fechaDeEmision,
+                MONEDA_SOLES,
                 totalGravada,
                 totalIgv,
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 total,
                 IGV_PERCENTAGE,
+                true,
                 items);
     }
 
-    private NubeFactDocumentResponse post(String path, Object body) {
+    private NubeFactDocumentResponse post(Object body) {
         try {
             return restClient
                     .post()
-                    .uri(path)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiToken)
+                    .header(HttpHeaders.AUTHORIZATION, apiToken)
                     .body(body)
                     .retrieve()
                     .body(NubeFactDocumentResponse.class);
         } catch (RuntimeException ex) {
             // Never log request/response payloads here: the Authorization header (the token)
             // must never reach the logs. Only the exception's own message is logged.
-            log.warn("NubeFacT call to {} failed: {}", path, ex.getMessage());
+            log.warn("NubeFacT call failed: {}", ex.getMessage());
             throw ex;
         }
     }
@@ -208,24 +236,31 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
     }
 
     private List<NubeFactItemRequest> toItemRequests(List<VoucherLineItem> lineItems) {
+        int[] lineNumber = {0};
         return lineItems.stream()
                 .map(
                         item -> {
                             // unitPrice/subtotal are our own tax-inclusive consumer prices (Peru
                             // retail convention); valor_unitario/total_gravada/igv are derived by
-                            // dividing by 1.18 — this modeling assumption isn't confirmed by
-                            // research.md and is called out as a deviation in the PR report.
+                            // dividing by 1.18 — confirmed against the real sandbox.
                             BigDecimal precioUnitario = item.unitPrice();
                             BigDecimal valorUnitario = divideByIgv(precioUnitario);
                             BigDecimal lineTotal = item.subtotal();
                             BigDecimal lineGravada = divideByIgv(lineTotal);
                             BigDecimal lineIgv = lineTotal.subtract(lineGravada);
+                            lineNumber[0]++;
+                            // `codigo`: not yet sourced from the real catalog SKU (VoucherLineItem
+                            // doesn't carry one) — a positional placeholder until a future change
+                            // threads the product SKU through.
+                            String codigo = String.format("%03d", lineNumber[0]);
                             return new NubeFactItemRequest(
                                     UNIDAD_DE_MEDIDA_GOODS,
+                                    codigo,
                                     item.description(),
                                     BigDecimal.valueOf(item.quantity()),
                                     valorUnitario,
                                     precioUnitario,
+                                    lineGravada,
                                     STANDARD_TAX_CODE,
                                     lineIgv,
                                     lineTotal);

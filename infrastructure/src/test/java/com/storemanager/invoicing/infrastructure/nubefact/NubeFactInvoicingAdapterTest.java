@@ -28,15 +28,19 @@ import org.springframework.web.client.RestClient;
 
 /**
  * Adapter unit tests against a mocked HTTP layer ({@link MockRestServiceServer} bound to a {@link
- * RestClient.Builder}) — no live NubeFacT call is ever made, per tasks.md 3.4. The
- * "sends request body matching research.md" test exists so a future NubeFacT integration engineer
- * can trust {@link NubeFactInvoicingAdapter}'s field mapping without re-deriving it.
+ * RestClient.Builder}) — no live NubeFacT call is ever made. Field names, the single-endpoint
+ * routing, the plain (non-"Bearer") auth header, and the {@code operacion} field were all
+ * confirmed against the real NubeFacT sandbox directly (curl, real account) before this rewrite —
+ * see automated-e2e-testing's follow-up fix: the original shape here was research.md's
+ * best-informed guess, and it was wrong (real calls 404'd on the old per-operation URL paths).
  */
 class NubeFactInvoicingAdapterTest {
 
-    private static final String BASE_URL = "https://sandbox.nubefact.test";
+    // The real endpoint is base-url-only, per-client (a URL like
+    // https://api.nubefact.com/api/v1/{client-guid}) — every operation POSTs to this exact URL,
+    // distinguished only by the "operacion" field in the body.
+    private static final String BASE_URL = "https://sandbox.nubefact.test/api/v1/test-client-guid";
     private static final String TOKEN = "test-token-123";
-    private static final String ISSUE_PATH = "/api/v1/comprobantes";
 
     private static final String ACCEPTED_RESPONSE_JSON =
             """
@@ -74,9 +78,9 @@ class NubeFactInvoicingAdapterTest {
 
     @Test
     void issueBoletaMapsAcceptedResponse() {
-        server.expect(requestTo(BASE_URL + ISSUE_PATH))
+        server.expect(requestTo(BASE_URL))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer " + TOKEN))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, TOKEN))
                 .andRespond(withSuccess(ACCEPTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
         IssuedVoucher issued = adapter.issueBoleta(boletaRequest());
@@ -91,31 +95,33 @@ class NubeFactInvoicingAdapterTest {
     }
 
     @Test
-    void issueBoletaSendsRequestBodyMatchingResearchFieldNames() {
+    void issueBoletaSendsRequestBodyMatchingTheRealNubeFactContract() {
         // boletaRequest(): unitPrice 29.50 x qty 2 = subtotal 59.00 (tax-inclusive). Divided by the
         // 1.18 IGV multiplier: valor_unitario 29.50/1.18 = 25.00 exactly; line total_gravada
-        // 59.00/1.18 = 50.00 exactly; line igv 59.00 - 50.00 = 9.00. These are asserted explicitly
-        // (not just the identity fields) per RDD review-reliability finding
-        // R3-untested-tax-computation: the 1.18-split arithmetic that produces the numbers on a
-        // SUNAT-facing legal document must be exercised by an externally observable assertion.
-        server.expect(requestTo(BASE_URL + ISSUE_PATH))
+        // 59.00/1.18 = 50.00 exactly; line igv 59.00 - 50.00 = 9.00.
+        server.expect(requestTo(BASE_URL))
                 .andExpect(method(HttpMethod.POST))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, TOKEN))
                 .andExpect(
                         content()
                                 .json(
                                         """
                                         {
+                                          "operacion": "generar_comprobante",
                                           "tipo_de_comprobante": 2,
-                                          "series": "B001",
-                                          "correlativo": 1,
+                                          "serie": "B001",
+                                          "numero": 1,
+                                          "sunat_transaction": 1,
                                           "cliente_tipo_de_documento": "1",
                                           "cliente_numero_de_documento": "45678912",
+                                          "moneda": 1,
                                           "total_gravada": 50.00,
                                           "total_igv": 9.00,
                                           "total_inafecta": 0.00,
                                           "total_exonerada": 0.00,
                                           "total": 59.00,
                                           "porcentaje_de_igv": 18.00,
+                                          "enviar_automaticamente_a_la_sunat": true,
                                           "items": [
                                             {
                                               "unidad_de_medida": "NIU",
@@ -123,6 +129,7 @@ class NubeFactInvoicingAdapterTest {
                                               "cantidad": 2,
                                               "valor_unitario": 25.00,
                                               "precio_unitario": 29.50,
+                                              "subtotal": 50.00,
                                               "tipo_de_igv": 10,
                                               "igv": 9.00,
                                               "total": 59.00
@@ -149,7 +156,7 @@ class NubeFactInvoicingAdapterTest {
                         List.of(new VoucherLineItem("Case protector", new BigDecimal("59.00"), 1, new BigDecimal("59.00"))),
                         new BigDecimal("59.00"));
 
-        server.expect(requestTo(BASE_URL + ISSUE_PATH))
+        server.expect(requestTo(BASE_URL))
                 .andExpect(
                         content()
                                 .json(
@@ -174,15 +181,16 @@ class NubeFactInvoicingAdapterTest {
                         "RUC", "20123456789", List.of(new VoucherLineItem("Smartphone case", new BigDecimal("59.00"), 1, new BigDecimal("59.00"))),
                         new BigDecimal("59.00"));
 
-        server.expect(requestTo(BASE_URL + ISSUE_PATH))
+        server.expect(requestTo(BASE_URL))
                 .andExpect(
                         content()
                                 .json(
                                         """
                                         {
+                                          "operacion": "generar_comprobante",
                                           "tipo_de_comprobante": 1,
-                                          "series": "F001",
-                                          "correlativo": 1,
+                                          "serie": "F001",
+                                          "numero": 1,
                                           "cliente_tipo_de_documento": "6",
                                           "total_gravada": 50.00,
                                           "total_igv": 9.00,
@@ -191,6 +199,7 @@ class NubeFactInvoicingAdapterTest {
                                             {
                                               "valor_unitario": 50.00,
                                               "precio_unitario": 59.00,
+                                              "subtotal": 50.00,
                                               "igv": 9.00,
                                               "total": 59.00
                                             }
@@ -207,7 +216,7 @@ class NubeFactInvoicingAdapterTest {
 
     @Test
     void issueBoletaMapsRejectedResponse() {
-        server.expect(requestTo(BASE_URL + ISSUE_PATH))
+        server.expect(requestTo(BASE_URL))
                 .andRespond(withSuccess(REJECTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
         IssuedVoucher issued = adapter.issueBoleta(boletaRequest());
@@ -221,7 +230,7 @@ class NubeFactInvoicingAdapterTest {
 
     @Test
     void issueBoletaThrowsOnServerError() {
-        server.expect(requestTo(BASE_URL + ISSUE_PATH)).andRespond(withServerError());
+        server.expect(requestTo(BASE_URL)).andRespond(withServerError());
 
         assertThatThrownBy(() -> adapter.issueBoleta(boletaRequest()))
                 .isInstanceOf(org.springframework.web.client.HttpServerErrorException.class);
@@ -229,7 +238,7 @@ class NubeFactInvoicingAdapterTest {
 
     @Test
     void issueBoletaThrowsOnConnectionFailure() {
-        server.expect(requestTo(BASE_URL + ISSUE_PATH))
+        server.expect(requestTo(BASE_URL))
                 .andRespond(request -> {
                     throw new IOException("Connection refused");
                 });
@@ -240,12 +249,12 @@ class NubeFactInvoicingAdapterTest {
     @Test
     void aConnectionFailureDoesNotBurnTheCorrelativoSoARetryReusesTheSameNumber() {
         // Both expectations registered upfront: MockRestServiceServer forbids adding one mid-flight.
-        server.expect(requestTo(BASE_URL + ISSUE_PATH))
+        server.expect(requestTo(BASE_URL))
                 .andRespond(request -> {
                     throw new IOException("Connection refused");
                 });
-        server.expect(requestTo(BASE_URL + ISSUE_PATH))
-                .andExpect(content().json("{\"correlativo\": 1}", false))
+        server.expect(requestTo(BASE_URL))
+                .andExpect(content().json("{\"numero\": 1}", false))
                 .andRespond(withSuccess(ACCEPTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
         assertThatThrownBy(() -> adapter.issueBoleta(boletaRequest())).isInstanceOf(ResourceAccessException.class);
@@ -276,15 +285,16 @@ class NubeFactInvoicingAdapterTest {
                         List.of(new VoucherLineItem("Smartphone case", new BigDecimal("59.00"), 1, new BigDecimal("59.00"))),
                         new BigDecimal("59.00"));
 
-        server.expect(requestTo(BASE_URL + ISSUE_PATH))
+        server.expect(requestTo(BASE_URL))
                 .andExpect(
                         content()
                                 .json(
                                         """
                                         {
+                                          "operacion": "generar_comprobante",
                                           "tipo_de_comprobante": 3,
-                                          "series": "FC01",
-                                          "correlativo": 1,
+                                          "serie": "FC01",
+                                          "numero": 1,
                                           "total_gravada": 50.00,
                                           "total_igv": 9.00,
                                           "total": 59.00,
@@ -292,6 +302,7 @@ class NubeFactInvoicingAdapterTest {
                                             {
                                               "valor_unitario": 50.00,
                                               "precio_unitario": 59.00,
+                                              "subtotal": 50.00,
                                               "igv": 9.00,
                                               "total": 59.00
                                             }
@@ -309,7 +320,8 @@ class NubeFactInvoicingAdapterTest {
 
     @Test
     void checkStatusReturnsAcceptedWhenSunatAccepted() {
-        server.expect(requestTo(BASE_URL + "/api/v1/comprobantes/consultar"))
+        server.expect(requestTo(BASE_URL))
+                .andExpect(content().json("{\"operacion\": \"consultar_comprobante\"}", false))
                 .andRespond(withSuccess(ACCEPTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
         VoucherStatus status = adapter.checkStatus("B001-1");
@@ -319,7 +331,7 @@ class NubeFactInvoicingAdapterTest {
 
     @Test
     void checkStatusReturnsPendingWhenNotAccepted() {
-        server.expect(requestTo(BASE_URL + "/api/v1/comprobantes/consultar"))
+        server.expect(requestTo(BASE_URL))
                 .andRespond(withSuccess(REJECTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
         VoucherStatus status = adapter.checkStatus("B001-1");
@@ -329,8 +341,9 @@ class NubeFactInvoicingAdapterTest {
 
     @Test
     void voidVoucherMapsAcceptedResponse() {
-        server.expect(requestTo(BASE_URL + "/api/v1/comprobantes/anular"))
+        server.expect(requestTo(BASE_URL))
                 .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("{\"operacion\": \"generar_anulacion\"}", false))
                 .andRespond(withSuccess(ACCEPTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
         IssuedVoucher issued = adapter.voidVoucher("B001-1", "Anulacion por error de digitacion");
