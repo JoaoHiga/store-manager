@@ -22,7 +22,12 @@ describe('salesApi', () => {
     expect(result).toEqual([{ id: 1, status: 'COMPLETED' }]);
   });
 
-  it('recordSale posts the items and buyer reference and returns the created sale', async () => {
+  it('recordSale posts the items, buyer reference, and voucher type and returns the created sale', async () => {
+    // Regression: recordSale used to destructure only items/buyerDocumentType/buyerDocumentNumber,
+    // silently dropping voucherType from the outgoing request body even though RecordSalePage
+    // always passed it in — every submission failed the backend's @NotNull voucherType check.
+    // RecordSalePage.test.jsx alone couldn't catch this: it mocks recordSale at the module
+    // boundary and never inspects what this function actually sends over the wire.
     const sale = { id: 1, status: 'COMPLETED' };
     mockFetchOnce(201, sale);
 
@@ -30,6 +35,7 @@ describe('salesApi', () => {
       items: [{ productId: 1, quantity: 2 }],
       buyerDocumentType: 'DNI',
       buyerDocumentNumber: '12345678',
+      voucherType: 'BOLETA',
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
@@ -40,6 +46,7 @@ describe('salesApi', () => {
           items: [{ productId: 1, quantity: 2 }],
           buyerDocumentType: 'DNI',
           buyerDocumentNumber: '12345678',
+          voucherType: 'BOLETA',
         }),
       }),
     );

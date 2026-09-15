@@ -32,10 +32,10 @@ export function getSale(id) {
   return request(`/api/sales/${id}`);
 }
 
-export function recordSale({ items, buyerDocumentType, buyerDocumentNumber }) {
+export function recordSale({ items, buyerDocumentType, buyerDocumentNumber, voucherType }) {
   return request('/api/sales', {
     method: 'POST',
-    body: JSON.stringify({ items, buyerDocumentType, buyerDocumentNumber }),
+    body: JSON.stringify({ items, buyerDocumentType, buyerDocumentNumber, voucherType }),
   });
 }
 
