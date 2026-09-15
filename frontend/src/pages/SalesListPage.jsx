@@ -20,12 +20,14 @@ const VOUCHER_STATUS_TONES = {
 };
 
 /**
- * `GET /api/sales` currently always returns `voucherStatus: null` (see
- * `SaleResponse`'s javadoc — a known, pre-existing gap, not something this
- * frontend-only PR can fix). We treat `null`/`undefined` as "unknown" rather
- * than as a status of its own: the retry/void buttons stay visible in that
- * case (the backend still enforces the real rule on every call) and the
- * badge says so plainly instead of guessing.
+ * `GET /api/sales` correctly returns the real `voucherStatus` (verified by
+ * `SaleFlowE2ETest` and the Playwright E2E suite, automated-e2e-testing).
+ * `null`/`undefined` is still handled defensively as "unknown" rather than
+ * a status of its own — the retry/void buttons stay visible in that case
+ * (the backend still enforces the real rule on every call) and the badge
+ * says so plainly instead of guessing — but this path shouldn't be reached
+ * in practice, since a voucher is always created synchronously when a sale
+ * is recorded.
  */
 function voucherBadge(voucherStatus) {
   if (!voucherStatus) {
