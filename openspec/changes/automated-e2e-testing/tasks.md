@@ -36,12 +36,12 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Phase B — Full-Stack Playwright E2E (TDD)
 
-- [ ] 2.1 Add `@playwright/test` devDependency + `test:e2e` script to `frontend/package.json`.
-- [ ] 2.2 Create `frontend/playwright.config.ts` with multi-`webServer` (Vite `npm run dev`, backend `mvn -pl infrastructure spring-boot:run -Dspring-boot.run.profiles=sandbox`).
-- [ ] 2.3 Create `infrastructure/src/main/resources/application-sandbox.yaml` wiring `NubeFactInvoicingAdapter` to the sandbox base URL, token from `NUBEFACT_SANDBOX_TOKEN` env var.
-- [ ] 2.4 RED: Write `frontend/e2e/sale-voucher-flow.spec.ts` — navigate to record-sale page, fill form, submit — fails (nothing to assert yet against a running stack).
-- [ ] 2.5 GREEN: Confirm the spec passes against both real servers: sale appears in `SalesListPage` with the exact voucher type chosen (BOLETA and FACTURA, two scenarios).
-- [ ] 2.6 Document the required local env var (`NUBEFACT_SANDBOX_TOKEN`) and Docker Desktop prerequisite in a short `frontend/e2e/README.md`.
+- [x] 2.1 Add `@playwright/test` devDependency + `test:e2e` script to `frontend/package.json`.
+- [x] 2.2 Create `frontend/playwright.config.js` with multi-`webServer` (Vite dev server + `frontend/e2e/start-backend.sh`, a throwaway Postgres container on port 5433 + the real Spring Boot app against it — port 5432/real dev DB never touched).
+- [x] 2.3 REVISED (no separate profile — no confirmed distinct sandbox base URL exists for NubeFacT; the existing default profile already reads `NUBEFACT_API_TOKEN` from the environment and degrades gracefully to `PENDING` when absent/invalid, per `IssueVoucherForSaleUseCase`'s own contract). Documented in `frontend/e2e/README.md` instead.
+- [x] 2.4 RED: Wrote `frontend/e2e/sale-voucher-flow.spec.js` — real failure while `start-backend.sh`'s Maven invocation was misconfigured (see Deviations), then real failures debugging port/config issues before the stack ever ran correctly.
+- [x] 2.5 GREEN: Both scenarios pass — the real POST/GET network responses (intercepted via `page.waitForRequest`/`page.waitForResponse`) show the exact voucher type chosen (BOLETA and FACTURA, triangulated), independent of whether NubeFacT itself accepts the document.
+- [x] 2.6 Documented the required local env var (`NUBEFACT_API_TOKEN`), Docker Desktop prerequisite, and the port-collision incident in `frontend/e2e/README.md`.
 
 ## Phase 3: CI + Pre-Archive Gate
 
