@@ -9,15 +9,17 @@ backend in isolation with Testcontainers; this covers the full path through a re
 
 ## Prerequisites
 
-- **Docker Desktop running** (WSL-integrated on Windows). `start-backend.sh` boots a dedicated,
+- **Docker Desktop running** (WSL-integrated on Windows). `playwright.config.js` boots a dedicated,
   throwaway Postgres container on port **5433** — deliberately different from the real dev
   database on 5432, so a Phase B run never touches your actual local data.
 - **Stop your normal `npm run dev` / backend** before running this suite. Phase B needs ports
-  **5173** (frontend) and **8080** (backend) itself; `playwright.config.js` sets
+  **5173** (frontend) and **8080** (backend) itself; those two `webServer` entries use
   `reuseExistingServer: false` on purpose so a run fails loudly ("port already in use") instead of
   silently attaching to whatever else is already listening there. (This bit us once during
   development: an old leftover backend process from an earlier session got silently reused and the
   test wrote a real sale into the real dev database — see `apply-progress.md`'s PR2 Deviations.)
+  The Postgres entry (port 5433) is the one exception: it uses `reuseExistingServer: true`, safely —
+  see Known limitation below for why.
 - `NUBEFACT_API_TOKEN` — optional. Without it, `IssueVoucherForSaleUseCase` still completes every
   sale (its own contract: an issuance failure never blocks or rolls back the sale) and persists the
   voucher as `PENDING` instead of `ACCEPTED`. This suite's assertions only check that the **chosen
@@ -31,12 +33,28 @@ backend in isolation with Testcontainers; this covers the full path through a re
 npm run test:e2e
 ```
 
-This boots (in order Playwright manages itself): the Vite dev server, and `start-backend.sh`
-(Postgres container on 5433 → Spring Boot on 8080 against it). Both are torn down after the run.
+This boots (in parallel, Playwright manages each as its own `webServer` entry): the Vite dev
+server, a throwaway Postgres container (port 5433), and `start-backend.sh` (waits for that
+Postgres port, then runs the real Spring Boot app against it). The frontend and backend are
+reliably killed by Playwright after the run; the Postgres container is not (see below) — this is
+expected, not a bug to chase further.
 
 ## Known limitation
 
-If a run is interrupted (Ctrl-C, crash) before `start-backend.sh`'s cleanup trap fires, the
-`store-manager-e2e-db` container can linger. The script defensively `docker rm -f`s any container
-with that name before starting a new one, so the next run self-heals — but if you want to reclaim
-resources immediately: `docker stop store-manager-e2e-db`.
+The Postgres container **intentionally lingers after a run** rather than being torn down. This
+was investigated directly (not just observed and shrugged off): a `docker run` in the foreground
+only stops its container when the signal it receives is one Docker's CLI relays to the container
+(SIGTERM/SIGINT) — whatever tears down Playwright's `webServer` processes in this environment
+doesn't reliably do that, so `--rm` never gets the chance to fire. The same race existed even with
+a bash-script-owned container + an EXIT/INT/TERM trap around `docker stop` — moving ownership to
+Playwright's own process management didn't change the outcome, which is why this is documented as
+an accepted characteristic rather than chased further with more signal-handling machinery.
+
+Because a stray container on port 5433 is *always* this suite's own leftover (nothing else
+legitimately binds that port — unlike 8080/5173, which a real dev server could), the Postgres
+`webServer` entry uses `reuseExistingServer: true`: the next run reuses it directly instead of
+erroring on a port collision. This is safe because every run is independent regardless of prior
+state — Flyway's migrations are idempotent and each test seeds its own uniquely-named fixtures.
+
+To reclaim the resources between sessions (not required for correctness): `docker stop
+store-manager-e2e-db`.

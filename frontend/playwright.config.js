@@ -34,6 +34,26 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
+      // `reuseExistingServer: true` — unlike ports 8080/5173 (which a
+      // developer's own unrelated dev servers could legitimately occupy,
+      // the exact incident documented in apply-progress.md), port 5433 is
+      // this suite's own exclusive convention; nothing else legitimately
+      // binds it. Confirmed empirically (this session): when Playwright's
+      // teardown reaches a foreground `docker run`, Docker's client only
+      // forwards the signal to the container on SIGTERM/SIGINT — a harder
+      // kill leaves it running orphaned, `--rm` notwithstanding, and
+      // Playwright's own `reuseExistingServer: false` port pre-check then
+      // refuses to even attempt starting a new one (it never runs the
+      // command at all once it sees the port occupied). Reusing a leftover
+      // instance here is safe: same image, same fixed schema via Flyway
+      // (idempotent), and each test seeds its own uniquely-named fixtures.
+      command:
+        'docker run --rm --name store-manager-e2e-db -p 5433:5432 -e POSTGRES_DB=store_manager -e POSTGRES_USER=store_manager -e POSTGRES_PASSWORD=store_manager postgres:16-alpine',
+      port: 5433,
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+    {
       command: 'bash e2e/start-backend.sh',
       url: 'http://localhost:8080/actuator/health',
       reuseExistingServer: false,

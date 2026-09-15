@@ -1,29 +1,18 @@
 #!/usr/bin/env bash
-# Boots a throwaway PostgreSQL container (distinct port from the real dev DB
-# on 5432, so Phase B E2E runs never touch real local data) and then runs the
-# real Spring Boot app against it. Invoked as one Playwright `webServer`
-# command (design.md: "a docker-compose or npm script that boots both").
+# Runs the real Spring Boot app against the throwaway Postgres container
+# Playwright itself owns as a separate `webServer` entry (playwright.config.js)
+# — port 5433, distinct from the real dev DB on 5432, so Phase B E2E runs
+# never touch real local data.
 set -euo pipefail
 
-CONTAINER_NAME="store-manager-e2e-db"
 DB_PORT="${DB_PORT:-5433}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-cleanup() {
-  docker stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
-}
-trap cleanup EXIT INT TERM
-
-echo "[start-backend] starting throwaway Postgres on port ${DB_PORT}..."
-docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
-docker run --rm --name "$CONTAINER_NAME" -p "${DB_PORT}:5432" \
-  -e POSTGRES_DB=store_manager -e POSTGRES_USER=store_manager -e POSTGRES_PASSWORD=store_manager \
-  -d postgres:16-alpine >/dev/null
-
-until docker exec "$CONTAINER_NAME" pg_isready -U store_manager >/dev/null 2>&1; do
+until (exec 3<>"/dev/tcp/localhost/${DB_PORT}") 2>/dev/null; do
   sleep 0.5
 done
-echo "[start-backend] Postgres ready."
+exec 3<&- 3>&-
+echo "[start-backend] Postgres reachable on port ${DB_PORT}."
 
 # Install `application` into the local repo first: on a fresh checkout (CI)
 # it isn't there yet, and running `spring-boot:run` directly against
