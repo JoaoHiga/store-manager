@@ -48,7 +48,7 @@ Chain strategy: stacked-to-main
 - [x] 3.1 Create `.github/workflows/e2e.yml`: 3 jobs (`backend`: `mvn clean test`, covers Phase A; `frontend-unit`: `npm test`; `e2e-full-stack`: `npm run test:e2e`, Phase B) on push/PR; `NUBEFACT_API_TOKEN` from repo secrets (optional, see PR2's README).
 - [x] 3.2 REVISED — no explicit `testcontainers-java` version pin added. The Docker-29.x incompatibility is already worked around in `SaleFlowE2ETest` itself (`api.version=1.44`, PR1), independent of the pinned version; this task becomes "verify that workaround also covers whatever Docker Engine version `ubuntu-latest` runs" — done empirically by watching the `backend` job's first real CI run (task 3.4).
 - [x] 3.3 Added `rules.archive` entry to `openspec/config.yaml` (worded to reference the actual incident: two post-archive bugs after `sales-invoicing`'s pending-manual-E2E archive). Also added `e2e_test_command` to the frontend project entry so `sdd-verify` knows Phase B exists as a separate command from `npm test`.
-- [ ] 3.4 Verify the new CI workflow runs green on its own PR before merge.
+- [x] 3.4 Verified: PR3's own CI run (https://github.com/JoaoHiga/store-manager/actions/runs/35019328227) — all 3 jobs green. `backend` passed without needing the `api.version=1.44` workaround to even trigger a failure (ubuntu-latest's Docker Engine version doesn't hit the same incompatibility PR1 found locally; the workaround is harmless to leave in place regardless).
 
 ## Rules Applied
 
