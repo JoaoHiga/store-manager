@@ -184,6 +184,31 @@ class SaleFlowE2ETest {
         assertThat(voidResponse.getBody().get("status")).isEqualTo("CANCELLED");
     }
 
+    /**
+     * Real bug found running Phase B against the actual NubeFacT sandbox (not a hypothetical):
+     * NubeFacT can return a rejection ({@code aceptada_por_sunat: false}) with a
+     * {@code descripcion_sunat} longer than the {@code rejection_reason} column's old 1000-char
+     * bound. That INSERT failure happened OUTSIDE {@code IssueVoucherForSaleUseCase}'s try/catch
+     * (only the provider call itself is guarded), so it propagated uncaught and broke the sale
+     * recording entirely — even though the whole point of the PENDING path is that a sale always
+     * completes regardless of issuance outcome.
+     */
+    @Test
+    void recordingASaleSurvivesAVeryLongRejectionReasonFromTheProvider() {
+        String veryLongRejectionReason = "SUNAT rechazó el comprobante: ".repeat(50);
+        assertThat(veryLongRejectionReason.length()).isGreaterThan(1000);
+        Mockito.when(invoicingProvider.issueBoleta(ArgumentMatchers.any(VoucherRequest.class)))
+                .thenReturn(new IssuedVoucher(false, null, veryLongRejectionReason, "2", null, null, null, null));
+
+        ResponseEntity<Map> response =
+                restTemplate.postForEntity("/api/sales", saleRequest("BOLETA", "DNI", "12345678"), Map.class);
+
+        assertThat(response.getStatusCode())
+                .as("sale recording must survive an oversized rejection reason: %s", response.getBody())
+                .isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody().get("voucherStatus")).isEqualTo("PENDING");
+    }
+
     @Test
     void retryingAPendingVoucherReissuesItAndCanBeAccepted() {
         // First call (during record) fails -> the sale still completes with a PENDING voucher

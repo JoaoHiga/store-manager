@@ -34,7 +34,9 @@ public class VoucherJpaEntity {
     @Column(name = "attempt_count", nullable = false)
     private int attemptCount;
 
-    @Column(name = "rejection_reason", length = 1000)
+    // TEXT, not VARCHAR(n): NubeFacT's rejection description can exceed any fixed bound in
+    // practice (V7 migration) — never truncate a SUNAT rejection reason.
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
 
     @Column(name = "external_reference", length = 100)
