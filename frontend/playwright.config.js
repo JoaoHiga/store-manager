@@ -11,6 +11,7 @@ export default defineConfig({
   timeout: 30_000,
   fullyParallel: false,
   retries: 0,
+  reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'http://localhost:5173',
   },

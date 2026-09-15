@@ -45,9 +45,9 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: CI + Pre-Archive Gate
 
-- [ ] 3.1 Create `.github/workflows/e2e.yml` running Phase A (`mvn -pl infrastructure test -Dtest=SaleFlowE2ETest`) and Phase B (`npm run test:e2e`) on push/PR; pass `NUBEFACT_SANDBOX_TOKEN` from repo secrets.
-- [ ] 3.2 Pin a `testcontainers-java` version verified against the Docker 29.1 regression (check current release notes at implementation time — `research.md` gap).
-- [ ] 3.3 Add `rules.archive: - "Automated E2E suite must pass before archive; do not archive with E2E marked pending"` to `openspec/config.yaml`.
+- [x] 3.1 Create `.github/workflows/e2e.yml`: 3 jobs (`backend`: `mvn clean test`, covers Phase A; `frontend-unit`: `npm test`; `e2e-full-stack`: `npm run test:e2e`, Phase B) on push/PR; `NUBEFACT_API_TOKEN` from repo secrets (optional, see PR2's README).
+- [x] 3.2 REVISED — no explicit `testcontainers-java` version pin added. The Docker-29.x incompatibility is already worked around in `SaleFlowE2ETest` itself (`api.version=1.44`, PR1), independent of the pinned version; this task becomes "verify that workaround also covers whatever Docker Engine version `ubuntu-latest` runs" — done empirically by watching the `backend` job's first real CI run (task 3.4).
+- [x] 3.3 Added `rules.archive` entry to `openspec/config.yaml` (worded to reference the actual incident: two post-archive bugs after `sales-invoicing`'s pending-manual-E2E archive). Also added `e2e_test_command` to the frontend project entry so `sdd-verify` knows Phase B exists as a separate command from `npm test`.
 - [ ] 3.4 Verify the new CI workflow runs green on its own PR before merge.
 
 ## Rules Applied
