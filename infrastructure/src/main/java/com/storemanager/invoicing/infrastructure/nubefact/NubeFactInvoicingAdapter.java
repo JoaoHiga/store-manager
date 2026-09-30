@@ -167,8 +167,8 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
      *
      * <p>{@code cliente_denominacion} is a placeholder (confirmed against the real sandbox:
      * NubeFacT rejects a blank/under-3-char denominación) — this project doesn't collect a buyer's
-     * legal name anywhere yet, only their document number. A follow-up SDD change adds a real
-     * RUC/DNI lookup; until then this is a known, deliberate limitation, not a silent guess.
+     * legal name anywhere yet, only their document number. A follow-up (paused, see
+     * {@code odd/tasks/buyer-name-lookup.md}) adds a real RUC/DNI lookup; until then this is a known, deliberate limitation, not a silent guess.
      */
     private NubeFactDocumentRequest buildDocumentBody(
             int tipoDeComprobante,
