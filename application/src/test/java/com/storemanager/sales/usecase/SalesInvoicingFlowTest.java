@@ -49,7 +49,9 @@ class SalesInvoicingFlowTest {
 
         IssueVoucherForSaleUseCase issueVoucherForSaleUseCase =
                 new IssueVoucherForSaleUseCase(voucherRepository, invoicingProvider);
-        recordSaleUseCase = new RecordSaleUseCase(saleRepository, productRepository, issueVoucherForSaleUseCase);
+        recordSaleUseCase =
+                new RecordSaleUseCase(
+                        saleRepository, productRepository, issueVoucherForSaleUseCase, new RecordingTransactionRunner());
         retryPendingVoucherUseCase =
                 new RetryPendingVoucherUseCase(voucherRepository, saleRepository, invoicingProvider);
         retrySaleVoucherUseCase = new RetrySaleVoucherUseCase(voucherRepository, retryPendingVoucherUseCase);

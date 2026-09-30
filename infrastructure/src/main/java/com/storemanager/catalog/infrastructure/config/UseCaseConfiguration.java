@@ -20,6 +20,7 @@ import com.storemanager.sales.usecase.GetSaleUseCase;
 import com.storemanager.sales.usecase.ListSalesUseCase;
 import com.storemanager.sales.usecase.RecordSaleUseCase;
 import com.storemanager.sales.usecase.RetrySaleVoucherUseCase;
+import com.storemanager.shared.domain.port.TransactionRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -73,8 +74,10 @@ public class UseCaseConfiguration {
     public RecordSaleUseCase recordSaleUseCase(
             SaleRepositoryPort saleRepositoryPort,
             ProductRepositoryPort productRepositoryPort,
-            IssueVoucherForSaleUseCase issueVoucherForSaleUseCase) {
-        return new RecordSaleUseCase(saleRepositoryPort, productRepositoryPort, issueVoucherForSaleUseCase);
+            IssueVoucherForSaleUseCase issueVoucherForSaleUseCase,
+            TransactionRunner transactionRunner) {
+        return new RecordSaleUseCase(
+                saleRepositoryPort, productRepositoryPort, issueVoucherForSaleUseCase, transactionRunner);
     }
 
     @Bean

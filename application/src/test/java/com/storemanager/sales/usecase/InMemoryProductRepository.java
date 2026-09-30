@@ -2,6 +2,7 @@ package com.storemanager.sales.usecase;
 
 import com.storemanager.catalog.domain.Product;
 import com.storemanager.catalog.domain.port.ProductRepositoryPort;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +18,7 @@ class InMemoryProductRepository implements ProductRepositoryPort {
     private final List<Product> products = new ArrayList<>();
     private long nextId = 1;
     private long nextSku = 1;
+    private boolean stockLostToAConcurrentSale = false;
 
     @Override
     public Product save(Product product) {
@@ -60,5 +62,31 @@ class InMemoryProductRepository implements ProductRepositoryPort {
                 .filter(p -> p.isActive() == active)
                 .filter(p -> p.getCategoryId().equals(categoryId))
                 .toList();
+    }
+
+    /**
+     * Makes the next {@link #decrementStockIfAvailable} call fail as if a concurrent sale had taken the stock
+     * between {@code RecordSaleUseCase}'s availability check and its conditional decrement.
+     */
+    void loseStockToAConcurrentSaleOnNextDecrement() {
+        stockLostToAConcurrentSale = true;
+    }
+
+    @Override
+    public boolean decrementStockIfAvailable(Long productId, int quantity, Instant now) {
+        if (stockLostToAConcurrentSale) {
+            stockLostToAConcurrentSale = false;
+            return false;
+        }
+        Optional<Product> current = findById(productId);
+        if (current.isEmpty() || current.get().getStockQuantity() < quantity) {
+            return false;
+        }
+        Product product = current.get();
+        save(
+                product.withUpdatedFields(
+                        product.getName(), product.getDescription(), product.getCategoryId(), product.getBrand(),
+                        product.getCostPrice(), product.getSalePrice(), product.getStockQuantity() - quantity, now));
+        return true;
     }
 }

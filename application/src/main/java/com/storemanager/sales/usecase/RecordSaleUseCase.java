@@ -2,53 +2,54 @@ package com.storemanager.sales.usecase;
 
 import com.storemanager.catalog.domain.Product;
 import com.storemanager.catalog.domain.port.ProductRepositoryPort;
+import com.storemanager.invoicing.domain.Voucher;
 import com.storemanager.invoicing.domain.VoucherType;
 import com.storemanager.invoicing.usecase.IssueVoucherForSaleUseCase;
 import com.storemanager.sales.domain.Sale;
 import com.storemanager.sales.domain.SaleItem;
 import com.storemanager.sales.domain.port.SaleRepositoryPort;
+import com.storemanager.shared.domain.port.TransactionRunner;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Records a sale against the existing product catalog. For each requested line, validates the
- * referenced product exists, is active, and has enough stock via the existing
- * {@code ProductRepositoryPort} — {@code product-catalog}'s own code is never modified (see
- * proposal.md, Dependencies), but a completed sale DOES decrement stock through that same port,
- * since a sale is exactly the event that consumes it. Quantities are validated cumulatively per
- * product across every line in the request (not line-by-line against the untouched stock), so two
- * lines referencing the same product can't each pass an individual check while jointly overselling
- * — found and required by review-reliability's R3-stock-not-decremented finding. Then each
- * product's current {@code salePrice}/{@code description} is snapshotted onto its {@link SaleItem}
- * so a later catalog change never affects this sale (see design.md, Decision: Sale line-item
- * pricing).
+ * Records a sale against the existing product catalog, in two phases.
  *
- * <p>Once the sale is persisted, this use case calls {@link IssueVoucherForSaleUseCase} directly
- * (PR4 of sales-invoicing) rather than through a separate orchestrating use case: design.md's Data
- * Flow shows voucher issuance as the immediate next step after "Sale persisted", with no
- * additional business rule of its own in between, so a wrapper use case here would only add
- * indirection — {@code RecordSaleUseCase} stays the app's single "record a sale" entry point,
- * which is what {@code SaleController} already calls. Per {@code IssueVoucherForSaleUseCase}'s own
- * contract it never throws and always persists either an {@code ACCEPTED} or {@code PENDING}
- * voucher, so a sale is never rolled back or blocked by an invoicing failure — its returned {@code
- * Voucher} is intentionally discarded here; voucher state is queried separately (by sale id) when
- * needed.
+ * <p><b>Phase 1, one transaction</b> ({@link TransactionRunner}): validate that every referenced product
+ * exists, is active and has enough stock (quantities summed per product across lines, so two lines for the
+ * same product cannot jointly oversell); save the {@link Sale}, snapshotting each product's current price
+ * and description onto its {@link SaleItem}; decrement stock with a conditional update; and register the
+ * voucher as {@code PENDING}. All of it commits together or not at all, so there is never a sale without its
+ * stock decremented or without its voucher. The conditional decrement is the real stock guard: the earlier
+ * availability check only produces a precise error message, and a concurrent sale that takes the stock in
+ * between makes the decrement fail, which rolls the whole sale back.
+ *
+ * <p><b>Phase 2, after commit</b>: attempt voucher issuance once through {@link IssueVoucherForSaleUseCase}.
+ * It calls NubeFacT, so it deliberately runs outside the transaction. It never blocks or undoes the sale:
+ * any failure leaves the voucher {@code PENDING} for {@code RetryPendingVouchersJob}. This is a transactional
+ * outbox (the {@code PENDING} voucher row is the outbox entry), not a saga: a sale is never compensated
+ * because SUNAT is unavailable. See {@code docs/architecture.md}.
  */
 public class RecordSaleUseCase {
+
+    private static final System.Logger LOG = System.getLogger(RecordSaleUseCase.class.getName());
 
     private final SaleRepositoryPort saleRepository;
     private final ProductRepositoryPort productRepository;
     private final IssueVoucherForSaleUseCase issueVoucherForSaleUseCase;
+    private final TransactionRunner transactionRunner;
 
     public RecordSaleUseCase(
             SaleRepositoryPort saleRepository,
             ProductRepositoryPort productRepository,
-            IssueVoucherForSaleUseCase issueVoucherForSaleUseCase) {
+            IssueVoucherForSaleUseCase issueVoucherForSaleUseCase,
+            TransactionRunner transactionRunner) {
         this.saleRepository = saleRepository;
         this.productRepository = productRepository;
         this.issueVoucherForSaleUseCase = issueVoucherForSaleUseCase;
+        this.transactionRunner = transactionRunner;
     }
 
     public Sale execute(
@@ -56,16 +57,8 @@ public class RecordSaleUseCase {
             String buyerDocumentType,
             String buyerDocumentNumber,
             VoucherType voucherType) {
-        // Fail fast, before any persistence: IssueVoucherForSaleUseCase re-checks the FACTURA/RUC
-        // rule and Voucher.createNew re-checks non-null type, but both run AFTER
-        // saleRepository.save(sale) below, with no surrounding @Transactional boundary to roll
-        // that save back. Checking both here too means a rejected request never leaves a phantom
-        // COMPLETED sale row behind — RecordSaleRequest's @NotNull keeps a null voucherType from
-        // ever reaching here over the REST API, but this use case is also called directly
-        // (unit tests, any future caller), so it must not rely on that DTO-layer guard alone
-        // (found by RDD's R3-voucher-validation-after-sale-persist and its follow-up
-        // R3-null-voucher-type-unguarded — the request's own validation must happen before its
-        // side effects, not after, and must cover every reachable invalid input, not just one).
+        // Reject invalid requests before opening a transaction. RecordSaleRequest's @NotNull already keeps a
+        // null voucherType out over REST, but this use case is also called directly (tests, future callers).
         if (voucherType == null) {
             throw new IllegalArgumentException("Voucher type is required");
         }
@@ -78,6 +71,28 @@ public class RecordSaleUseCase {
             requestedQuantityByProductId.merge(line.productId(), line.quantity(), Integer::sum);
         }
 
+        RecordedSale recorded =
+                transactionRunner.inTransaction(
+                        () -> recordSale(lines, requestedQuantityByProductId, buyerDocumentType, buyerDocumentNumber,
+                                voucherType));
+
+        try {
+            issueVoucherForSaleUseCase.issue(recorded.pendingVoucher(), recorded.sale());
+        } catch (RuntimeException ex) {
+            // The sale is already committed and its voucher is PENDING, so the retry job will issue it. Only a
+            // failure to persist the issuance outcome reaches here; provider failures are handled by issue().
+            LOG.log(System.Logger.Level.WARNING,
+                    "Voucher issuance for sale " + recorded.sale().getId() + " left for the retry job", ex);
+        }
+        return recorded.sale();
+    }
+
+    private RecordedSale recordSale(
+            List<SaleLineItemRequest> lines,
+            Map<Long, Integer> requestedQuantityByProductId,
+            String buyerDocumentType,
+            String buyerDocumentNumber,
+            VoucherType voucherType) {
         Map<Long, Product> productsById = new LinkedHashMap<>();
         for (Map.Entry<Long, Integer> requested : requestedQuantityByProductId.entrySet()) {
             Long productId = requested.getKey();
@@ -96,31 +111,25 @@ public class RecordSaleUseCase {
 
         List<SaleItem> items =
                 lines.stream().map(line -> toSaleItem(line, productsById.get(line.productId()))).toList();
-        Sale sale = Sale.createNew(items, buyerDocumentType, buyerDocumentNumber, Instant.now());
-        Sale saved = saleRepository.save(sale);
-
-        issueVoucherForSaleUseCase.execute(saved, voucherType);
+        Sale saved = saleRepository.save(Sale.createNew(items, buyerDocumentType, buyerDocumentNumber, Instant.now()));
 
         Instant now = Instant.now();
         for (Map.Entry<Long, Integer> requested : requestedQuantityByProductId.entrySet()) {
-            Product product = productsById.get(requested.getKey());
-            int remainingStock = product.getStockQuantity() - requested.getValue();
-            productRepository.save(
-                    product.withUpdatedFields(
-                            product.getName(),
-                            product.getDescription(),
-                            product.getCategoryId(),
-                            product.getBrand(),
-                            product.getCostPrice(),
-                            product.getSalePrice(),
-                            remainingStock,
-                            now));
+            Long productId = requested.getKey();
+            if (!productRepository.decrementStockIfAvailable(productId, requested.getValue(), now)) {
+                int available =
+                        productRepository.findById(productId).map(Product::getStockQuantity).orElse(0);
+                throw new InsufficientStockException(productId, requested.getValue(), available);
+            }
         }
 
-        return saved;
+        Voucher pendingVoucher = issueVoucherForSaleUseCase.registerPending(saved, voucherType);
+        return new RecordedSale(saved, pendingVoucher);
     }
 
     private SaleItem toSaleItem(SaleLineItemRequest line, Product product) {
         return SaleItem.createNew(product.getId(), product.getDescription(), product.getSalePrice(), line.quantity());
     }
+
+    private record RecordedSale(Sale sale, Voucher pendingVoucher) {}
 }

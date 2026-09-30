@@ -2,6 +2,7 @@ package com.storemanager.catalog.infrastructure.persistence;
 
 import com.storemanager.catalog.domain.Product;
 import com.storemanager.catalog.domain.port.ProductRepositoryPort;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -48,6 +49,11 @@ public class ProductRepositoryAdapter implements ProductRepositoryPort {
     @Override
     public List<Product> findByActiveAndCategoryId(boolean active, Long categoryId) {
         return jpaRepository.findByActiveAndCategoryId(active, categoryId).stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public boolean decrementStockIfAvailable(Long productId, int quantity, Instant now) {
+        return jpaRepository.decrementStockIfAvailable(productId, quantity, now) == 1;
     }
 
     private String generateSku() {

@@ -145,6 +145,8 @@ The backend is split into three business domains. Each one has the same internal
 - **catalog** — products and categories.
 - **sales** — recording, listing and cancelling sales.
 - **invoicing** — electronic vouchers (boleta/factura), their issuance, retries and voiding via NubeFacT.
+- **shared** — not a business domain: cross-cutting ports every domain may use, such as
+  `TransactionRunner` (run a unit of work atomically).
 
 <!-- BEGIN GENERATED: backend-domains -->
 | Domain | Domain model (`domain/`) | Ports (`domain/port/`) | Use cases (`usecase/`) | Infrastructure (files) |
@@ -152,6 +154,7 @@ The backend is split into three business domains. Each one has the same internal
 | `catalog` | `Category`, `Product` | `CategoryRepositoryPort`, `ProductRepositoryPort` | `CreateCategoryUseCase`, `CreateProductUseCase`, `DeactivateProductUseCase`, `ListCategoriesUseCase`, `ListProductsUseCase`, `ReactivateProductUseCase`, `UpdateProductUseCase` | `config/ (2)`, `persistence/ (6)`, `web/ (8)` |
 | `invoicing` | `Voucher`, `VoucherStatus`, `VoucherType` | `InvoicingProvider`, `VoucherRepositoryPort` | `IssueVoucherForSaleUseCase`, `RetryPendingVoucherUseCase`, `VoidSaleUseCase` | `config/ (1)`, `nubefact/ (9)`, `persistence/ (5)`, `scheduling/ (1)` |
 | `sales` | `BuyerDocumentValidator`, `Sale`, `SaleItem`, `SaleStatus` | `SaleRepositoryPort` | `CancelSaleUseCase`, `GetSaleUseCase`, `ListSalesUseCase`, `RecordSaleUseCase`, `RetrySaleVoucherUseCase` | `persistence/ (4)`, `web/ (7)` |
+| `shared` | — | `TransactionRunner` | — | `transaction/ (1)` |
 <!-- END GENERATED: backend-domains -->
 
 ### Ports and the adapters that implement them
@@ -164,6 +167,7 @@ The backend is split into three business domains. Each one has the same internal
 | `InvoicingProvider` | `application/…/invoicing/domain/port/InvoicingProvider.java` | `infrastructure/…/invoicing/infrastructure/nubefact/NubeFactInvoicingAdapter.java` |
 | `VoucherRepositoryPort` | `application/…/invoicing/domain/port/VoucherRepositoryPort.java` | `infrastructure/…/invoicing/infrastructure/persistence/VoucherRepositoryAdapter.java` |
 | `SaleRepositoryPort` | `application/…/sales/domain/port/SaleRepositoryPort.java` | `infrastructure/…/sales/infrastructure/persistence/SaleRepositoryAdapter.java` |
+| `TransactionRunner` | `application/…/shared/domain/port/TransactionRunner.java` | `infrastructure/…/shared/infrastructure/transaction/SpringTransactionRunner.java` |
 <!-- END GENERATED: ports-adapters -->
 
 ### Wiring: who plugs what into which socket
@@ -173,7 +177,12 @@ Use cases are plain Java classes with constructor parameters, so Spring does not
 case and passes it the concrete adapters. It is the house's fuse box: when a use case gains a new port,
 this is where it gets plugged in. (It lives under `catalog` for historical reasons but wires every domain.)
 
-`WebConfig.java`, next to it, configures CORS so the Vite dev server (`http://localhost:5173`) may call
+Ports that are not repositories are wired the same way. `TransactionRunner` (in `shared`) is how a use
+case asks for "all of this or nothing" without importing Spring: `SpringTransactionRunner` implements it
+with a `TransactionTemplate`, so everything written through repository ports inside it commits or rolls
+back together.
+
+`WebConfig.java`, next to `UseCaseConfiguration`, configures CORS so the Vite dev server (`http://localhost:5173`) may call
 the API.
 
 ### REST API
@@ -236,17 +245,30 @@ the API.
 2. **`frontend/src/api/salesApi.js`** — `POST /api/sales` with items, buyer document and voucher type.
 3. **`SaleController.record`** (web adapter) — Spring parses and validates the JSON, then calls the use
    case.
-4. **`RecordSaleUseCase`** (business) —
-   - rejects a factura without a RUC;
-   - checks every product exists, is active and has enough stock;
-   - builds the `Sale` (which computes its own total, so it can never disagree with its items);
-   - saves it through `SaleRepositoryPort`;
-   - calls `IssueVoucherForSaleUseCase`, which calls NubeFacT through `InvoicingProvider` and saves the
-     `Voucher` as `ACCEPTED`, or as `PENDING` if NubeFacT failed or rejected it;
-   - decrements stock through `ProductRepositoryPort`.
+4. **`RecordSaleUseCase`** (business) rejects a factura without a RUC, then works in two phases:
+   - **Phase 1, one database transaction** (`TransactionRunner`):
+     - checks every product exists, is active and has enough stock;
+     - builds and saves the `Sale` (which computes its own total, so it can never disagree with its items);
+     - decrements stock with a **conditional update** (`... WHERE stock_quantity >= :quantity`). If a
+       concurrent sale took the stock in the meantime, the update changes nothing, the use case throws
+       `InsufficientStockException` and the whole transaction rolls back;
+     - registers the `Voucher` as `PENDING`.
+     All of it commits together or not at all.
+   - **Phase 2, after the commit**: `IssueVoucherForSaleUseCase.issue` calls NubeFacT through
+     `InvoicingProvider` and saves the voucher as `ACCEPTED`, or leaves it `PENDING` with the reason.
+     It runs outside the transaction on purpose: a transaction must never stay open waiting on the
+     network. Its failures never undo the sale.
 5. **`SaleRepositoryAdapter`** — converts `Sale` to `SaleJpaEntity`; JPA writes it to PostgreSQL.
-6. **`RetryPendingVouchersJob`** — every 5 minutes, retries every `PENDING` voucher. A sale is never
-   blocked because NubeFacT or SUNAT is down.
+6. **`RetryPendingVouchersJob`** — every 5 minutes, retries every `PENDING` voucher not updated in the last
+   minute. The grace period keeps it from racing phase 2 (which would issue a voucher twice) while still
+   recovering a voucher whose phase 2 never ran (the server died right after the commit).
+
+**Why not a saga?** A saga coordinates steps across services that each own a database, undoing earlier
+steps with compensations when a later one fails. Here there is one database, so the local steps fit in one
+transaction; and the only remote step, NubeFacT, must not trigger compensation: the customer already left
+with the product, so a sale is never undone because SUNAT is down. The `PENDING` voucher row written in the
+same transaction acts as a **transactional outbox**: a durable record of work still owed to the outside
+world, drained by the retry job.
 
 Other flows follow the same shape: page → API client → controller → use case → ports → adapters.
 Voiding a sale (`POST /api/sales/{id}/void`) asks NubeFacT to void the voucher, marks it `VOIDED` and the
@@ -256,12 +278,12 @@ sale `CANCELLED`.
 
 Keep this list honest: add a risk when you find it, remove it in the change that fixes it.
 
-- **Recording a sale is not atomic.** `RecordSaleUseCase` saves the sale, calls NubeFacT and only then
-  decrements stock, with no transaction around it. A failure in between can leave a sale whose stock was
-  never decremented.
-- **Lost stock updates under concurrency.** Stock is read, decremented in memory and written back as an
-  absolute value, with no locking (`@Version`) or conditional update. Two simultaneous sales of the last
-  unit can both succeed.
+- **Editing a product overwrites its stock.** `PUT /api/products/{id}` writes the stock value from the
+  form as an absolute number. A sale recorded while the form is open is silently undone on save. Sales
+  themselves are safe (conditional update).
+- **Manual retry can race the retry job.** `POST /api/sales/{id}/retry-voucher` and `RetryPendingVouchersJob`
+  do not coordinate. If both hit the same settled `PENDING` voucher at the same moment, it could be issued
+  twice. Unlikely with one cashier, but there is no lock.
 - **No authentication.** Anyone who can reach the API can record and void sales.
 - **No stock entry.** Stock only goes down (sales); there is no purchase, restock or adjustment flow
   beyond editing the product.

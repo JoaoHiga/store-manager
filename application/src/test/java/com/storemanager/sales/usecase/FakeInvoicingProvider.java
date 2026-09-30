@@ -25,6 +25,11 @@ class FakeInvoicingProvider implements InvoicingProvider {
     private String rejectionReason = "SUNAT did not accept the voucher";
     private long nextReference = 1;
     private int voidVoucherCallCount = 0;
+    private int issueCallCount = 0;
+
+    int issueCallCount() {
+        return issueCallCount;
+    }
 
     int voidVoucherCallCount() {
         return voidVoucherCallCount;
@@ -79,6 +84,7 @@ class FakeInvoicingProvider implements InvoicingProvider {
     }
 
     private IssuedVoucher issue() {
+        issueCallCount++;
         if (mode == Mode.THROW) {
             throw new RuntimeException("Simulated OSE timeout while issuing");
         }
