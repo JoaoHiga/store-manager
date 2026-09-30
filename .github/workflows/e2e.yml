@@ -38,6 +38,19 @@ jobs:
       - working-directory: frontend
         run: npm test
 
+  architecture-doc:
+    name: Architecture doc (generator tests + up-to-date check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # The generated sections of docs/architecture.md are derived from the code;
+      # this fails when a change alters them without re-running the script.
+      - run: node --test scripts/architecture-doc.test.mjs
+      - run: node scripts/architecture-doc.mjs --check
+
   e2e-full-stack:
     name: Full-stack E2E (Playwright, Phase B)
     runs-on: ubuntu-latest
