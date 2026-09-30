@@ -60,6 +60,8 @@ voucher stays `PENDING` and is retried. Decision taken with the user on 2026-09-
 - [x] T4 `docs/architecture.md`: regenerate; update flow and known risks. Acceptance: `--check` passes.
   Evidence: `--check` failed before regenerating (new port detected), passes after. Two fixed risks removed;
   two found while working added (product edit overwrites stock; manual retry vs job race).
+- [x] T5 `docs/requirements/`: sales (atomic recording, concurrent last unit) and invoicing (register PENDING
+  with the sale, attempt after; retry grace period). Added before merge, per the `AGENTS.md` rule.
 
 ## Delivery
 

@@ -30,6 +30,8 @@ The system MUST determine the voucher type from an explicit `voucherType` choice
 
 The system MUST issue a voucher for every completed sale through the configured `InvoicingProvider`. A sale MUST complete regardless of the outcome of voucher issuance: on acceptance the voucher is persisted `ACCEPTED` with its PDF/XML/CDR links and hash; on any provider failure, timeout, or non-acceptance, the voucher MUST be persisted `PENDING` and the sale MUST NOT be rolled back or blocked.
 
+The voucher MUST be registered as `PENDING` in the same atomic step that records the sale, and issuance MUST be attempted immediately after that step completes, outside it: a sale's data is never held locked while waiting on the provider.
+
 #### Scenario: Voucher accepted on the first attempt
 - GIVEN a completed sale
 - WHEN the invoicing provider accepts the voucher
@@ -49,10 +51,17 @@ The system MUST issue a voucher for every completed sale through the configured 
 
 The system MUST automatically retry a `PENDING` voucher on a recurring schedule, and MUST also allow a manual retry at any time. After a bounded number of automatic attempts without success, a `PENDING` voucher MUST transition to `NEEDS_ATTENTION` and stop retrying automatically until a manual retry is triggered.
 
+The automatic retry MUST skip a `PENDING` voucher updated within the last minute, so it never overlaps the immediate issuance attempt made right after a sale is recorded (which would issue the same voucher twice). A voucher whose immediate attempt never happened (e.g. the server stopped right after the sale was persisted) MUST still be picked up once that period has passed.
+
 #### Scenario: A pending voucher is retried automatically and succeeds
 - GIVEN a `PENDING` voucher
 - WHEN the scheduled retry runs and the invoicing provider now accepts it
 - THEN the voucher transitions to `ACCEPTED`
+
+#### Scenario: A just-registered voucher is not retried yet
+- GIVEN a `PENDING` voucher updated less than a minute ago
+- WHEN the scheduled retry runs
+- THEN the voucher is left untouched, with no issuance attempt
 
 #### Scenario: A pending voucher exhausts automatic retries
 - GIVEN a `PENDING` voucher that has failed the maximum number of scheduled retry attempts
