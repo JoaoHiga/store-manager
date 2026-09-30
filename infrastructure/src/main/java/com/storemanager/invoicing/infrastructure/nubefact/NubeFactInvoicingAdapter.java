@@ -30,13 +30,23 @@ import org.springframework.web.client.RestClient;
  *
  * <p><b>Series/correlativo (deviation, deferred to this PR by design.md):</b> NubeFacT does not
  * assign series/correlativo — the client owns them. This adapter uses one fixed 4-char series per
- * document kind ({@code F001} facturas, {@code B001} boletas, {@code FC01}/{@code BC01} credit
- * notes issued against a factura/boleta respectively) plus a durable, per-series {@link
+ * document kind ({@code FFF1} facturas, {@code BBB1} boletas — confirmed directly against the real
+ * account's configured series in the NubeFacT panel), plus a durable, per-series {@link
  * CorrelativoAllocator} (database-backed — see {@link JpaCorrelativoAllocator} — fixed per RDD
  * review-reliability finding R3-nondurable-correlativo, which flagged an earlier in-memory counter
  * as risking duplicate series+correlativo pairs across a restart or a second app instance). {@code
  * IssuedVoucher.voucherReference()} is our own stable handle, built as {@code
  * "<series>-<correlativo>"}.
+ *
+ * <p><b>Credit/debit notes share their parent's series</b> (confirmed against the real account's
+ * panel: NOTA DE CRÉDITO/DÉBITO ELECTRÓNICA for a factura are listed under the same {@code FFF1}
+ * series as the factura itself, not a dedicated series like an earlier, unconfirmed assumption
+ * here had it). {@code issueCreditNote} isn't wired to any use case yet, so this is dormant today,
+ * but it means {@link #tipoFromSeries} can no longer disambiguate a factura/boleta from a credit
+ * note issued against it by series text alone once that changes — {@code checkStatus}/{@code
+ * voidVoucher} on a credit note's own reference will need the caller to pass the real {@code
+ * tipo_de_comprobante} explicitly (e.g. from the issuing {@code Voucher}'s own state) instead of
+ * inferring it here.
  *
  * <p><b>Endpoint paths, auth header, and the {@code checkStatus}/{@code voidVoucher} request
  * shapes are NOT confirmed by research.md</b> (which was scoped to the issuance JSON schema only).
@@ -63,10 +73,8 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
     private static final int TIPO_BOLETA = 2;
     private static final int TIPO_NOTA_CREDITO = 3;
 
-    private static final String SERIES_FACTURA = "F001";
-    private static final String SERIES_BOLETA = "B001";
-    private static final String SERIES_CREDIT_NOTE_FACTURA = "FC01";
-    private static final String SERIES_CREDIT_NOTE_BOLETA = "BC01";
+    private static final String SERIES_FACTURA = "FFF1";
+    private static final String SERIES_BOLETA = "BBB1";
 
     private static final int SUNAT_TRANSACTION_NORMAL = 1;
     private static final int MONEDA_SOLES = 1;
@@ -74,7 +82,11 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
 
     private static final BigDecimal IGV_PERCENTAGE = new BigDecimal("18.00");
     private static final BigDecimal IGV_MULTIPLIER = new BigDecimal("1.18");
-    private static final int STANDARD_TAX_CODE = 10; // SUNAT catalog 07: "Gravado - Operacion Onerosa"
+    // NubeFacT's own tipo_de_igv catalog (1-9), NOT raw SUNAT catalog 07 (10/20/30...) — confirmed
+    // against NubeFacT's official example code (www.nubefact.com/integracion), which sends "1" for
+    // a normal taxed line. Sending the SUNAT code (10) instead triggered a confusing bundle of
+    // "Total GRATUITA"/"Item - IGV" validation errors on the real sandbox.
+    private static final int STANDARD_TAX_CODE = 1; // NubeFacT catalog: "Gravado - Operacion Onerosa"
     private static final String UNIDAD_DE_MEDIDA_GOODS = "NIU";
 
     private static final Pattern VOUCHER_REFERENCE_PATTERN = Pattern.compile("^([A-Za-z0-9]{4})-(\\d{1,8})$");
@@ -186,6 +198,10 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
         String clienteDenominacion =
                 "Cliente " + (clienteNumeroDeDocumento != null ? clienteNumeroDeDocumento : "Varios");
+        // Confirmed against the real sandbox: NubeFacT rejects a blank cliente_numero_de_documento
+        // (codigo 21) even when tipo is "-" (Varios/menor cuantia) — a placeholder is required.
+        String resolvedClienteNumeroDeDocumento =
+                clienteNumeroDeDocumento != null ? clienteNumeroDeDocumento : "00000000";
         String fechaDeEmision = FECHA_DE_EMISION_FORMAT.format(java.time.LocalDate.now(ZoneOffset.UTC));
         return new NubeFactDocumentRequest(
                 OPERACION_GENERAR_COMPROBANTE,
@@ -194,7 +210,7 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
                 correlativo,
                 SUNAT_TRANSACTION_NORMAL,
                 clienteTipoDeDocumento,
-                clienteNumeroDeDocumento,
+                resolvedClienteNumeroDeDocumento,
                 clienteDenominacion,
                 "-",
                 fechaDeEmision,
@@ -293,18 +309,23 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
         };
     }
 
+    /** A credit/debit note shares its series with the document it's issued against (see class javadoc). */
     private String creditNoteSeriesFor(String originalVoucherReference) {
         if (originalVoucherReference != null
                 && originalVoucherReference.toUpperCase(Locale.ROOT).startsWith("F")) {
-            return SERIES_CREDIT_NOTE_FACTURA;
+            return SERIES_FACTURA;
         }
-        return SERIES_CREDIT_NOTE_BOLETA;
+        return SERIES_BOLETA;
     }
 
+    /**
+     * Known limitation (see class javadoc): since a credit note now shares its series with the
+     * document it's issued against, this can only ever answer FACTURA/BOLETA, never
+     * NOTA_CREDITO — fine for today's only real caller ({@code VoidSaleUseCase}, which never voids
+     * a credit note), but wrong the day {@code checkStatus}/{@code voidVoucher} gets called with a
+     * credit note's own reference.
+     */
     private int tipoFromSeries(String series) {
-        if (SERIES_CREDIT_NOTE_FACTURA.equals(series) || SERIES_CREDIT_NOTE_BOLETA.equals(series)) {
-            return TIPO_NOTA_CREDITO;
-        }
         return series.toUpperCase(Locale.ROOT).startsWith("F") ? TIPO_FACTURA : TIPO_BOLETA;
     }
 

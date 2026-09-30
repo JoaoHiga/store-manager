@@ -50,7 +50,7 @@ class NubeFactInvoicingAdapterTest {
               "enlace_del_xml": "https://nubefact.test/xml/1",
               "enlace_del_cdr": "https://nubefact.test/cdr/1",
               "codigo_hash": "HASH123",
-              "cadena_para_codigo_qr": "20123456789|2|B001|1|18.00|118.00|1|12345678|20260101|HASH123",
+              "cadena_para_codigo_qr": "20123456789|2|BBB1|1|18.00|118.00|1|12345678|20260101|HASH123",
               "sunat_description": "La boleta ha sido aceptada",
               "sunat_responsecode": "0"
             }
@@ -86,7 +86,7 @@ class NubeFactInvoicingAdapterTest {
         IssuedVoucher issued = adapter.issueBoleta(boletaRequest());
 
         assertThat(issued.accepted()).isTrue();
-        assertThat(issued.voucherReference()).isEqualTo("B001-1");
+        assertThat(issued.voucherReference()).isEqualTo("BBB1-1");
         assertThat(issued.hash()).isEqualTo("HASH123");
         assertThat(issued.pdfLink()).isEqualTo("https://nubefact.test/pdf/1");
         assertThat(issued.xmlLink()).isEqualTo("https://nubefact.test/xml/1");
@@ -109,7 +109,7 @@ class NubeFactInvoicingAdapterTest {
                                         {
                                           "operacion": "generar_comprobante",
                                           "tipo_de_comprobante": 2,
-                                          "serie": "B001",
+                                          "serie": "BBB1",
                                           "numero": 1,
                                           "sunat_transaction": 1,
                                           "cliente_tipo_de_documento": "1",
@@ -130,7 +130,7 @@ class NubeFactInvoicingAdapterTest {
                                               "valor_unitario": 25.00,
                                               "precio_unitario": 29.50,
                                               "subtotal": 50.00,
-                                              "tipo_de_igv": 10,
+                                              "tipo_de_igv": 1,
                                               "igv": 9.00,
                                               "total": 59.00
                                             }
@@ -189,7 +189,7 @@ class NubeFactInvoicingAdapterTest {
                                         {
                                           "operacion": "generar_comprobante",
                                           "tipo_de_comprobante": 1,
-                                          "serie": "F001",
+                                          "serie": "FFF1",
                                           "numero": 1,
                                           "cliente_tipo_de_documento": "6",
                                           "total_gravada": 50.00,
@@ -260,7 +260,7 @@ class NubeFactInvoicingAdapterTest {
         assertThatThrownBy(() -> adapter.issueBoleta(boletaRequest())).isInstanceOf(ResourceAccessException.class);
         IssuedVoucher issued = adapter.issueBoleta(boletaRequest());
 
-        assertThat(issued.voucherReference()).isEqualTo("B001-1");
+        assertThat(issued.voucherReference()).isEqualTo("BBB1-1");
     }
 
     @Test
@@ -281,7 +281,7 @@ class NubeFactInvoicingAdapterTest {
     void issueCreditNoteMapsAcceptedResponseAndPicksSeriesFromOriginalReference() {
         CreditNoteRequest request =
                 new CreditNoteRequest(
-                        "F001-7", "Devolucion de mercaderia",
+                        "FFF1-7", "Devolucion de mercaderia",
                         List.of(new VoucherLineItem("Smartphone case", new BigDecimal("59.00"), 1, new BigDecimal("59.00"))),
                         new BigDecimal("59.00"));
 
@@ -293,7 +293,7 @@ class NubeFactInvoicingAdapterTest {
                                         {
                                           "operacion": "generar_comprobante",
                                           "tipo_de_comprobante": 3,
-                                          "serie": "FC01",
+                                          "serie": "FFF1",
                                           "numero": 1,
                                           "total_gravada": 50.00,
                                           "total_igv": 9.00,
@@ -315,7 +315,7 @@ class NubeFactInvoicingAdapterTest {
         IssuedVoucher issued = adapter.issueCreditNote(request);
 
         assertThat(issued.accepted()).isTrue();
-        assertThat(issued.voucherReference()).isEqualTo("FC01-1");
+        assertThat(issued.voucherReference()).isEqualTo("FFF1-1");
     }
 
     @Test
@@ -324,7 +324,7 @@ class NubeFactInvoicingAdapterTest {
                 .andExpect(content().json("{\"operacion\": \"consultar_comprobante\"}", false))
                 .andRespond(withSuccess(ACCEPTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
-        VoucherStatus status = adapter.checkStatus("B001-1");
+        VoucherStatus status = adapter.checkStatus("BBB1-1");
 
         assertThat(status).isEqualTo(VoucherStatus.ACCEPTED);
     }
@@ -334,7 +334,7 @@ class NubeFactInvoicingAdapterTest {
         server.expect(requestTo(BASE_URL))
                 .andRespond(withSuccess(REJECTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
-        VoucherStatus status = adapter.checkStatus("B001-1");
+        VoucherStatus status = adapter.checkStatus("BBB1-1");
 
         assertThat(status).isEqualTo(VoucherStatus.PENDING);
     }
@@ -346,7 +346,7 @@ class NubeFactInvoicingAdapterTest {
                 .andExpect(content().json("{\"operacion\": \"generar_anulacion\"}", false))
                 .andRespond(withSuccess(ACCEPTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
-        IssuedVoucher issued = adapter.voidVoucher("B001-1", "Anulacion por error de digitacion");
+        IssuedVoucher issued = adapter.voidVoucher("BBB1-1", "Anulacion por error de digitacion");
 
         assertThat(issued.accepted()).isTrue();
     }
