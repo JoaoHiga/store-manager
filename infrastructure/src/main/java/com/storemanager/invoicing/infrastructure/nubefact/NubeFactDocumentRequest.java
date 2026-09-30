@@ -13,8 +13,8 @@ import java.util.List;
  * transaction), {@code cliente_tipo_de_documento}/{@code cliente_numero_de_documento} (SUNAT
  * buyer-document fields), {@code cliente_denominacion}/{@code cliente_direccion} (buyer name/
  * address — NubeFacT rejects a blank/short {@code cliente_denominacion}, min 3 chars; this
- * adapter fills a placeholder until a real buyer-name lookup exists, see the follow-up SDD
- * change), {@code fecha_de_emision} (DD-MM-YYYY), {@code moneda} (1=Soles), cabecera totals
+ * adapter fills a placeholder until a real buyer-name lookup exists, see
+ * {@code odd/tasks/buyer-name-lookup.md}), {@code fecha_de_emision} (DD-MM-YYYY), {@code moneda} (1=Soles), cabecera totals
  * ({@code total_gravada}/{@code total_igv}/{@code total_inafecta}/{@code total_exonerada}/{@code
  * total}/{@code porcentaje_de_igv}), {@code enviar_automaticamente_a_la_sunat}, and {@code
  * items[]}.

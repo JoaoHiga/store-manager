@@ -3,7 +3,7 @@
 Drives the real React UI (Vite dev server) against the real Spring Boot backend, both booted by
 Playwright itself, against a throwaway PostgreSQL container. This is the only test layer that
 exercises the actual `fetch` call the frontend makes and the actual response it parses — the exact
-boundary where both real bugs this SDD change exists for (`explicit-voucher-type-selection` and its
+boundary where both real bugs this suite was built for (`explicit-voucher-type-selection` and its
 PR #22 follow-up) lived. Phase A (`infrastructure/src/test/java/com/storemanager/e2e/`) covers the
 backend in isolation with Testcontainers; this covers the full path through a real browser.
 
