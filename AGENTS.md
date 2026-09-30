@@ -52,6 +52,13 @@ found after merge.
 
 ## Documentation
 
+- `docs/architecture.md`: how the system is built. Read it before architectural changes.
+  - Generated sections (between `<!-- BEGIN GENERATED -->` markers) come from the code. Never edit them
+    by hand: run `node scripts/architecture-doc.mjs` whenever a change touches dependencies, domains,
+    ports, adapters, controllers, migrations or frontend structure. CI fails if they are stale.
+  - Hand-written sections (concepts, wiring, flows, known risks) must be updated **in the same change**
+    that makes them inaccurate. Add a risk to "Known risks and gaps" when you find one; remove it in the
+    change that fixes it.
 - `docs/requirements/<domain>/spec.md`: current requirements for `invoicing`, `product-catalog`
   and `sales`. Read these during exploration; update them when behavior changes.
 - `docs/history/<date>-<change>/`: completed SDD changes (proposal, design, tasks, verify reports).
