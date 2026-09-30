@@ -10,6 +10,8 @@ Record sales against the product catalog and trigger invoicing, list and view sa
 
 The system MUST allow recording a sale with one or more line items, each referencing an existing, active `Product` by id, with `quantity` (> 0) and `unitPrice`/`description` snapshotted from the product at the moment of sale. The system MUST reject a sale referencing a nonexistent or inactive product, and MUST reject a sale whose requested quantity exceeds the product's current stock.
 
+Recording a sale MUST be atomic: the sale, the decrement of each product's stock and the registration of its voucher are persisted together or not at all. The stock check MUST hold under concurrency: two simultaneous sales MUST NOT both consume the same unit. The call to the invoicing provider MUST happen after that data is persisted, never while it is being written (see `invoicing`, Voucher Issuance via OSE).
+
 A buyer reference (`documentType`, `documentNumber`) is required only when the sale's computed total is S/700 or more ("boleta simple" threshold); below that, the sale may be recorded with no buyer reference at all. When present, `documentType` MUST be one of DNI (exactly 8 numeric digits), RUC (11 digits, prefix in `{10, 15, 17, 20}`, valid modulo-11 check digit), Carnet de Extranjería, or Pasaporte (non-blank, 5-20 characters); a malformed value is rejected regardless of the sale's total.
 
 #### Scenario: Record a valid sale
@@ -26,6 +28,16 @@ A buyer reference (`documentType`, `documentNumber`) is required only when the s
 - GIVEN an active product with `stockQuantity: 2`
 - WHEN a sale is recorded with a line item for that product, `quantity: 3`
 - THEN the system MUST reject the request with a validation error
+
+#### Scenario: Two concurrent sales compete for the last unit
+- GIVEN an active product with `stockQuantity: 1`
+- WHEN two sales for `quantity: 1` of that product are recorded at the same moment
+- THEN exactly one sale MUST be recorded and the other MUST be rejected with a validation error, leaving `stockQuantity: 0`
+
+#### Scenario: Recording a sale is all-or-nothing
+- GIVEN a valid sale request
+- WHEN any step of recording it fails (persisting the sale, decrementing stock, or registering its voucher)
+- THEN no part of it MUST be persisted: no sale, no stock change, no voucher
 
 #### Scenario: Record a low-total sale with no buyer reference
 - GIVEN a sale whose computed total is below S/700

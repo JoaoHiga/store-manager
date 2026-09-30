@@ -30,31 +30,50 @@ public class IssueVoucherForSaleUseCase {
         this.invoicingProvider = invoicingProvider;
     }
 
+    /** Registers the voucher and attempts issuance right away: {@link #registerPending} then {@link #issue}. */
     public Voucher execute(Sale sale, VoucherType requestedType) {
+        return issue(registerPending(sale, requestedType), sale);
+    }
+
+    /**
+     * Persists a {@code PENDING} voucher (zero attempts) for the sale, without calling the provider. Meant to
+     * run inside the same transaction that records the sale, so a sale never exists without its voucher: if
+     * the process dies before {@link #issue} runs, {@code RetryPendingVouchersJob} still finds and issues it.
+     */
+    public Voucher registerPending(Sale sale, VoucherType requestedType) {
         if (requestedType == VoucherType.FACTURA && !"RUC".equalsIgnoreCase(sale.getBuyerDocumentType())) {
             throw new IllegalArgumentException("Factura requires a RUC buyer document");
         }
-        Instant now = Instant.now();
-        Voucher voucher =
+        return voucherRepository.save(
                 Voucher.createNew(
-                        sale.getId(), requestedType, sale.getBuyerDocumentType(), sale.getBuyerDocumentNumber(), now);
+                        sale.getId(), requestedType, sale.getBuyerDocumentType(), sale.getBuyerDocumentNumber(),
+                        Instant.now()));
+    }
+
+    /**
+     * Attempts issuance of a voucher saved by {@link #registerPending}. Calls the provider, so it must run
+     * outside any database transaction. Never throws for a provider failure: the voucher stays {@code PENDING}
+     * with the reason recorded.
+     */
+    public Voucher issue(Voucher pendingVoucher, Sale sale) {
+        Instant now = Instant.now();
         VoucherRequest request = VoucherRequestMapper.toRequest(sale);
 
         IssuedVoucher issued;
         try {
-            issued = requestedType == VoucherType.FACTURA
+            issued = pendingVoucher.getType() == VoucherType.FACTURA
                     ? invoicingProvider.issueFactura(request)
                     : invoicingProvider.issueBoleta(request);
         } catch (RuntimeException ex) {
-            return voucherRepository.save(voucher.pending(ex.getMessage(), now));
+            return voucherRepository.save(pendingVoucher.pending(ex.getMessage(), now));
         }
 
         if (issued.accepted()) {
             return voucherRepository.save(
-                    voucher.accepted(
+                    pendingVoucher.accepted(
                             issued.voucherReference(), issued.pdfLink(), issued.xmlLink(), issued.cdrLink(),
                             issued.hash(), now));
         }
-        return voucherRepository.save(voucher.pending(issued.sunatDescription(), now));
+        return voucherRepository.save(pendingVoucher.pending(issued.sunatDescription(), now));
     }
 }

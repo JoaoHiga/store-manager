@@ -92,4 +92,28 @@ class ProductRepositoryAdapterTest {
 
         assertThat(result).extracting(Product::getId).containsExactlyInAnyOrder(active.getId(), activeOther.getId());
     }
+
+    @Test
+    void decrementsStockWhenEnoughIsAvailable() {
+        Product saved =
+                adapter.save(
+                        Product.createNew("iPhone 12", null, categoryId, null, null, new BigDecimal("350"), 3, Instant.now()));
+
+        boolean decremented = adapter.decrementStockIfAvailable(saved.getId(), 2, Instant.now());
+
+        assertThat(decremented).isTrue();
+        assertThat(adapter.findById(saved.getId()).orElseThrow().getStockQuantity()).isEqualTo(1);
+    }
+
+    @Test
+    void leavesStockUntouchedWhenLessThanTheRequestedQuantityIsAvailable() {
+        Product saved =
+                adapter.save(
+                        Product.createNew("iPhone 12", null, categoryId, null, null, new BigDecimal("350"), 3, Instant.now()));
+
+        boolean decremented = adapter.decrementStockIfAvailable(saved.getId(), 4, Instant.now());
+
+        assertThat(decremented).isFalse();
+        assertThat(adapter.findById(saved.getId()).orElseThrow().getStockQuantity()).isEqualTo(3);
+    }
 }

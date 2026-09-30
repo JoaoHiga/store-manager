@@ -225,4 +225,28 @@ class SaleFlowE2ETest {
         assertThat(retryResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(retryResponse.getBody().get("status")).isEqualTo("ACCEPTED");
     }
+
+    /**
+     * atomic-record-sale: the sale, its stock decrement and its PENDING voucher commit together, and the
+     * NubeFacT call happens after that commit, so a provider outage leaves a complete sale behind.
+     */
+    @Test
+    void aProviderOutageStillCommitsTheSaleTheStockDecrementAndAPendingVoucher() {
+        Mockito.when(invoicingProvider.issueBoleta(ArgumentMatchers.any(VoucherRequest.class)))
+                .thenThrow(new RuntimeException("simulated NubeFacT outage"));
+
+        ResponseEntity<Map> response =
+                restTemplate.postForEntity("/api/sales", saleRequest("BOLETA", "DNI", "12345678"), Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody().get("voucherStatus")).isEqualTo("PENDING");
+        ResponseEntity<List> products = restTemplate.getForEntity("/api/products", List.class);
+        Map<String, Object> product =
+                ((List<Map<String, Object>>) products.getBody())
+                        .stream()
+                                .filter(candidate -> productId.equals(((Number) candidate.get("id")).longValue()))
+                                .findFirst()
+                                .orElseThrow();
+        assertThat(((Number) product.get("stockQuantity")).intValue()).isEqualTo(9);
+    }
 }

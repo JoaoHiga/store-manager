@@ -2,6 +2,7 @@ package com.storemanager.catalog.usecase;
 
 import com.storemanager.catalog.domain.Product;
 import com.storemanager.catalog.domain.port.ProductRepositoryPort;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -55,5 +56,19 @@ class InMemoryProductRepository implements ProductRepositoryPort {
                 .filter(p -> p.isActive() == active)
                 .filter(p -> p.getCategoryId().equals(categoryId))
                 .toList();
+    }
+
+    @Override
+    public boolean decrementStockIfAvailable(Long productId, int quantity, Instant now) {
+        Optional<Product> current = findById(productId);
+        if (current.isEmpty() || current.get().getStockQuantity() < quantity) {
+            return false;
+        }
+        Product product = current.get();
+        save(
+                product.withUpdatedFields(
+                        product.getName(), product.getDescription(), product.getCategoryId(), product.getBrand(),
+                        product.getCostPrice(), product.getSalePrice(), product.getStockQuantity() - quantity, now));
+        return true;
     }
 }

@@ -9,12 +9,16 @@ import com.storemanager.invoicing.usecase.RetryPendingVoucherUseCase;
 import com.storemanager.sales.domain.Sale;
 import com.storemanager.sales.domain.SaleItem;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class RetryPendingVouchersJobTest {
+
+    /** Well past the job's grace period: a voucher whose last attempt already failed a while ago. */
+    private static final Instant TEN_MINUTES_AGO = Instant.now().minus(Duration.ofMinutes(10));
 
     private FakeInvoicingProvider invoicingProvider;
     private InMemoryVoucherRepository voucherRepository;
@@ -41,10 +45,14 @@ class RetryPendingVouchersJobTest {
     }
 
     private Voucher seedPendingVoucher(Long saleId, int attemptCount) {
+        return seedPendingVoucher(saleId, attemptCount, TEN_MINUTES_AGO);
+    }
+
+    private Voucher seedPendingVoucher(Long saleId, int attemptCount, Instant updatedAt) {
         return voucherRepository.save(
                 Voucher.reconstitute(
                         null, saleId, VoucherType.BOLETA, VoucherStatus.PENDING, "DNI", "12345678", attemptCount,
-                        "prior failure", null, null, null, null, null, Instant.now(), Instant.now()));
+                        "prior failure", null, null, null, null, null, updatedAt, updatedAt));
     }
 
     @Test
@@ -85,7 +93,7 @@ class RetryPendingVouchersJobTest {
                 voucherRepository.save(
                         Voucher.reconstitute(
                                 null, 999L, VoucherType.BOLETA, VoucherStatus.PENDING, "DNI", "12345678", 0,
-                                "prior failure", null, null, null, null, null, Instant.now(), Instant.now()));
+                                "prior failure", null, null, null, null, null, TEN_MINUTES_AGO, TEN_MINUTES_AGO));
         Long saleId = seedSale();
         Voucher healthyVoucher = seedPendingVoucher(saleId, 0);
         invoicingProvider.alwaysAccept();
@@ -96,5 +104,22 @@ class RetryPendingVouchersJobTest {
         assertThat(stillPending.getStatus()).isEqualTo(VoucherStatus.PENDING);
         Voucher accepted = voucherRepository.findById(healthyVoucher.getId()).orElseThrow();
         assertThat(accepted.getStatus()).isEqualTo(VoucherStatus.ACCEPTED);
+    }
+
+    /**
+     * atomic-record-sale: RecordSaleUseCase commits a PENDING voucher and only then calls NubeFacT. A voucher
+     * touched moments ago may be mid-issuance right now; retrying it here would issue it twice.
+     */
+    @Test
+    void skipsAPendingVoucherUpdatedWithinTheGracePeriod() {
+        Long saleId = seedSale();
+        Voucher justRegistered = seedPendingVoucher(saleId, 0, Instant.now());
+        invoicingProvider.alwaysAccept();
+
+        job.retryPendingVouchers();
+
+        Voucher untouched = voucherRepository.findById(justRegistered.getId()).orElseThrow();
+        assertThat(untouched.getStatus()).isEqualTo(VoucherStatus.PENDING);
+        assertThat(untouched.getAttemptCount()).isZero();
     }
 }

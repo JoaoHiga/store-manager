@@ -8,12 +8,15 @@ import com.storemanager.invoicing.domain.Voucher;
 import com.storemanager.invoicing.domain.VoucherStatus;
 import com.storemanager.invoicing.domain.VoucherType;
 import com.storemanager.invoicing.domain.port.InvoicingProvider;
+import com.storemanager.invoicing.domain.port.IssuedVoucher;
 import com.storemanager.invoicing.domain.port.VoucherRepositoryPort;
+import com.storemanager.invoicing.domain.port.VoucherRequest;
 import com.storemanager.invoicing.usecase.IssueVoucherForSaleUseCase;
 import com.storemanager.sales.domain.Sale;
 import com.storemanager.sales.domain.SaleStatus;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,8 +29,9 @@ class RecordSaleUseCaseTest {
     private final FakeInvoicingProvider invoicingProvider = new FakeInvoicingProvider();
     private final IssueVoucherForSaleUseCase issueVoucherForSaleUseCase =
             new IssueVoucherForSaleUseCase(voucherRepository, invoicingProvider);
+    private final RecordingTransactionRunner transactionRunner = new RecordingTransactionRunner();
     private final RecordSaleUseCase useCase =
-            new RecordSaleUseCase(saleRepository, productRepository, issueVoucherForSaleUseCase);
+            new RecordSaleUseCase(saleRepository, productRepository, issueVoucherForSaleUseCase, transactionRunner);
 
     private Product activeProduct;
 
@@ -282,7 +286,8 @@ class RecordSaleUseCaseTest {
         RecordingIssueVoucherForSaleUseCase recordingIssueVoucherForSaleUseCase =
                 new RecordingIssueVoucherForSaleUseCase(voucherRepository, invoicingProvider);
         RecordSaleUseCase useCaseWithRecordingIssuance =
-                new RecordSaleUseCase(saleRepository, productRepository, recordingIssueVoucherForSaleUseCase);
+                new RecordSaleUseCase(
+                        saleRepository, productRepository, recordingIssueVoucherForSaleUseCase, transactionRunner);
         invoicingProvider.alwaysAccept();
 
         Sale sale =
@@ -292,6 +297,71 @@ class RecordSaleUseCaseTest {
 
         assertThat(recordingIssueVoucherForSaleUseCase.capturedRequestedType).isEqualTo(VoucherType.FACTURA);
         assertThat(recordingIssueVoucherForSaleUseCase.capturedSale.getId()).isEqualTo(sale.getId());
+    }
+
+    @Test
+    void commitsTheSaleTheStockDecrementAndAPendingVoucherInOneTransaction() {
+        invoicingProvider.alwaysAccept();
+        List<String> writtenAtCommit = new ArrayList<>();
+        transactionRunner.atCommit(
+                () -> {
+                    Sale recorded = saleRepository.findAll().get(0);
+                    writtenAtCommit.add("sales=" + saleRepository.findAll().size());
+                    writtenAtCommit.add(
+                            "stock=" + productRepository.findById(activeProduct.getId()).orElseThrow().getStockQuantity());
+                    writtenAtCommit.add(
+                            "voucher=" + voucherRepository.findBySaleId(recorded.getId()).orElseThrow().getStatus());
+                });
+
+        useCase.execute(
+                List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678", VoucherType.BOLETA);
+
+        assertThat(transactionRunner.commitCount()).isEqualTo(1);
+        assertThat(writtenAtCommit).containsExactly("sales=1", "stock=2", "voucher=PENDING");
+    }
+
+    @Test
+    void callsTheInvoicingProviderOnlyAfterTheSaleTransactionHasCommitted() {
+        List<Boolean> transactionOpenAtIssuance = new ArrayList<>();
+        FakeInvoicingProvider probingProvider =
+                new FakeInvoicingProvider() {
+                    @Override
+                    public IssuedVoucher issueBoleta(VoucherRequest request) {
+                        transactionOpenAtIssuance.add(transactionRunner.isActive());
+                        return super.issueBoleta(request);
+                    }
+                };
+        RecordSaleUseCase useCaseWithProbe =
+                new RecordSaleUseCase(
+                        saleRepository, productRepository,
+                        new IssueVoucherForSaleUseCase(voucherRepository, probingProvider), transactionRunner);
+
+        Sale sale =
+                useCaseWithProbe.execute(
+                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678",
+                        VoucherType.BOLETA);
+
+        assertThat(transactionRunner.commitCount()).isEqualTo(1);
+        assertThat(transactionOpenAtIssuance).containsExactly(false);
+        assertThat(voucherRepository.findBySaleId(sale.getId()).orElseThrow().getStatus())
+                .isEqualTo(VoucherStatus.ACCEPTED);
+    }
+
+    @Test
+    void rejectsTheSaleWithoutIssuingWhenAConcurrentSaleTakesTheStockAfterTheAvailabilityCheck() {
+        invoicingProvider.alwaysAccept();
+        productRepository.loseStockToAConcurrentSaleOnNextDecrement();
+
+        assertThatThrownBy(
+                        () ->
+                                useCase.execute(
+                                        List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI",
+                                        "12345678", VoucherType.BOLETA))
+                .isInstanceOf(InsufficientStockException.class);
+
+        // The transaction is abandoned (a real one rolls back the sale insert) and nothing reaches NubeFacT.
+        assertThat(transactionRunner.commitCount()).isZero();
+        assertThat(invoicingProvider.issueCallCount()).isZero();
     }
 
     /**
@@ -311,10 +381,10 @@ class RecordSaleUseCaseTest {
         }
 
         @Override
-        public Voucher execute(Sale sale, VoucherType requestedType) {
+        public Voucher registerPending(Sale sale, VoucherType requestedType) {
             this.capturedSale = sale;
             this.capturedRequestedType = requestedType;
-            return super.execute(sale, requestedType);
+            return super.registerPending(sale, requestedType);
         }
     }
 }
