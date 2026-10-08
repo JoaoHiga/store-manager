@@ -84,9 +84,10 @@ class InMemoryProductRepository implements ProductRepositoryPort {
         }
         Product product = current.get();
         save(
-                product.withUpdatedFields(
-                        product.getName(), product.getDescription(), product.getCategoryId(), product.getBrand(),
-                        product.getCostPrice(), product.getSalePrice(), product.getStockQuantity() - quantity, now));
+                Product.reconstitute(
+                        product.getId(), product.getSku(), product.getName(), product.getDescription(),
+                        product.getCategoryId(), product.getBrand(), product.getCostPrice(), product.getSalePrice(),
+                        product.getStockQuantity() - quantity, product.isActive(), product.getCreatedAt(), now));
         return true;
     }
 }

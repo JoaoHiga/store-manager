@@ -181,7 +181,7 @@ class RecordSaleUseCaseTest {
         productRepository.save(
                 activeProduct.withUpdatedFields(
                         "iPhone 12", "Usado, buen estado", 1L, "Apple", new BigDecimal("300"),
-                        new BigDecimal("400"), 3, Instant.now()));
+                        new BigDecimal("400"), Instant.now()));
 
         Sale reloaded = saleRepository.findById(sale.getId()).orElseThrow();
         assertThat(reloaded.getItems().get(0).getUnitPrice()).isEqualByComparingTo("350");

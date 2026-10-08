@@ -95,7 +95,7 @@ class ProductTest {
     }
 
     @Test
-    void withUpdatedFieldsNeverChangesIdOrSku() {
+    void withUpdatedFieldsNeverChangesIdSkuOrStock() {
         Instant createdAt = Instant.now();
         Product product =
                 Product.reconstitute(
@@ -105,11 +105,11 @@ class ProductTest {
         Product updated =
                 product.withUpdatedFields(
                         "iPhone 12 (usado)", "Usado, buen estado", CATEGORY_ID, "Apple", new BigDecimal("250"),
-                        new BigDecimal("320"), 5, Instant.now());
+                        new BigDecimal("320"), Instant.now());
 
         assertThat(updated.getId()).isEqualTo(1L);
         assertThat(updated.getSku()).isEqualTo("PRD-000001");
         assertThat(updated.getName()).isEqualTo("iPhone 12 (usado)");
-        assertThat(updated.getStockQuantity()).isEqualTo(5);
+        assertThat(updated.getStockQuantity()).isEqualTo(3);
     }
 }

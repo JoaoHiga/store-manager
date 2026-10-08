@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.ActiveProfiles;
 
 @DataJpaTest
@@ -19,6 +20,7 @@ class ProductRepositoryAdapterTest {
 
     @Autowired private ProductJpaRepository productJpaRepository;
     @Autowired private CategoryJpaRepository categoryJpaRepository;
+    @Autowired private TestEntityManager entityManager;
 
     private ProductRepositoryAdapter adapter;
     private Long categoryId;
@@ -50,10 +52,9 @@ class ProductRepositoryAdapterTest {
         Product updated =
                 adapter.save(
                         saved.withUpdatedFields(
-                                "iPhone 12", null, categoryId, null, null, new BigDecimal("320"), 5, Instant.now()));
+                                "iPhone 12", null, categoryId, null, null, new BigDecimal("320"), Instant.now()));
 
         assertThat(updated.getSku()).isEqualTo(saved.getSku());
-        assertThat(updated.getStockQuantity()).isEqualTo(5);
     }
 
     @Test
@@ -115,5 +116,25 @@ class ProductRepositoryAdapterTest {
 
         assertThat(decremented).isFalse();
         assertThat(adapter.findById(saved.getId()).orElseThrow().getStockQuantity()).isEqualTo(3);
+    }
+
+    @Test
+    void savingAStaleProductNeverOverwritesStockChangedConcurrently() {
+        Product saved =
+                adapter.save(
+                        Product.createNew("iPhone 12", null, categoryId, null, null, new BigDecimal("350"), 3, Instant.now()));
+        // A sale lands between the edit loading the product (stock 3) and saving it.
+        adapter.decrementStockIfAvailable(saved.getId(), 2, Instant.now());
+
+        adapter.save(
+                Product.reconstitute(
+                        saved.getId(), saved.getSku(), "iPhone 12 (usado)", null, categoryId, null, null,
+                        new BigDecimal("320"), saved.getStockQuantity(), true, saved.getCreatedAt(), Instant.now()));
+        entityManager.flush();
+        entityManager.clear();
+
+        Product reloaded = adapter.findById(saved.getId()).orElseThrow();
+        assertThat(reloaded.getName()).isEqualTo("iPhone 12 (usado)");
+        assertThat(reloaded.getStockQuantity()).isEqualTo(1);
     }
 }
