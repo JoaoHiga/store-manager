@@ -305,7 +305,9 @@ sale `CANCELLED`.
    average, both computed from the row's current values (`... WHERE id = :id AND active = true`). A
    concurrent sale's decrement and this increment queue on the row lock and each applies on top of the
    other, so neither is lost. If the product was deactivated meanwhile, the update changes nothing, the use
-   case throws and the whole purchase rolls back.
+   case throws and the whole purchase rolls back. `stock_quantity` and `cost_price` are both mapped
+   `updatable = false` in `ProductJpaEntity` (a JPQL bulk update ignores that flag), so saving a product
+   loaded earlier (an edit, a deactivation) never writes back a stale stock or cost over this update.
 
 `PurchaseConcurrencyPostgresTest` proves the no-lost-update and rollback behavior on a real PostgreSQL.
 
@@ -320,10 +322,8 @@ Keep this list honest: add a risk when you find it, remove it in the change that
 - **Stock only moves through sales and purchases.** Purchases bring stock in (and recompute cost price), but
   there is no manual adjustment (shrinkage, physical counts) and no stock-movement ledger, so the current
   stock cannot be explained movement by movement. Cancelling a sale does not restore its stock
-  (`CancelSaleUseCase`). Editing a product cannot change its stock.
-- **A product edit can undo a purchase's cost price.** `costPrice` is a normal updatable column: saving an
-  edit form loaded before a purchase writes the old cost back over the weighted average the purchase just
-  computed. Stock is protected (`updatable = false`); cost is not.
+  (`CancelSaleUseCase`). Editing a product cannot change its stock or its cost price; a cost entered
+  wrong at creation can only be corrected by later purchases.
 - **Purchases cannot be voided or corrected.** A wrong purchase can only be offset by hand.
 - **Not deployed.** CI tests but does not deploy. CORS only allows `http://localhost:5173`.
 - **Buyer name is a placeholder** on vouchers (`"Cliente <document>"`). See `odd/tasks/buyer-name-lookup.md`.

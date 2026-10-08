@@ -147,7 +147,7 @@ class ProductControllerTest {
     @Test
     void updatesAProduct() throws Exception {
         when(updateProductUseCase.execute(
-                        eq(1L), eq("iPhone 12"), isNull(), eq(1L), isNull(), isNull(), eq(new BigDecimal("320"))))
+                        eq(1L), eq("iPhone 12"), isNull(), eq(1L), isNull(), eq(new BigDecimal("320"))))
                 .thenReturn(sampleProduct(1L, true));
 
         mockMvc.perform(
@@ -156,14 +156,14 @@ class ProductControllerTest {
                                 .content(
                                         objectMapper.writeValueAsString(
                                                 new UpdateProductRequest(
-                                                        "iPhone 12", null, 1L, null, null, new BigDecimal("320")))))
+                                                        "iPhone 12", null, 1L, null, new BigDecimal("320")))))
                 .andExpect(status().isOk());
     }
 
     @Test
     void ignoresAStockQuantitySentOnUpdate() throws Exception {
         when(updateProductUseCase.execute(
-                        eq(1L), eq("iPhone 12"), isNull(), eq(1L), isNull(), isNull(), eq(new BigDecimal("320"))))
+                        eq(1L), eq("iPhone 12"), isNull(), eq(1L), isNull(), eq(new BigDecimal("320"))))
                 .thenReturn(sampleProduct(1L, true));
         String jsonWithStock = "{\"name\":\"iPhone 12\",\"categoryId\":1,\"salePrice\":320,\"stockQuantity\":99}";
 
@@ -173,12 +173,15 @@ class ProductControllerTest {
     }
 
     @Test
-    void rejectsUpdatingWithANegativeCostPriceWith400() throws Exception {
-        String badJson =
-                "{\"name\":\"iPhone 12\",\"categoryId\":1,\"costPrice\":-1,\"salePrice\":350}";
+    void ignoresACostPriceSentOnUpdate() throws Exception {
+        when(updateProductUseCase.execute(
+                        eq(1L), eq("iPhone 12"), isNull(), eq(1L), isNull(), eq(new BigDecimal("320"))))
+                .thenReturn(sampleProduct(1L, true));
+        String jsonWithCost = "{\"name\":\"iPhone 12\",\"categoryId\":1,\"salePrice\":320,\"costPrice\":999}";
 
-        mockMvc.perform(put("/api/products/1").contentType(MediaType.APPLICATION_JSON).content(badJson))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/products/1").contentType(MediaType.APPLICATION_JSON).content(jsonWithCost))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.costPrice").doesNotExist());
     }
 
     @Test
@@ -195,7 +198,7 @@ class ProductControllerTest {
     @Test
     void rejectsUpdatingWithANonexistentCategoryWith400() throws Exception {
         when(updateProductUseCase.execute(
-                        eq(1L), anyString(), any(), anyLong(), any(), any(), any(BigDecimal.class)))
+                        eq(1L), anyString(), any(), anyLong(), any(), any(BigDecimal.class)))
                 .thenThrow(new CategoryNotFoundException(999L));
 
         mockMvc.perform(
@@ -204,14 +207,14 @@ class ProductControllerTest {
                                 .content(
                                         objectMapper.writeValueAsString(
                                                 new UpdateProductRequest(
-                                                        "iPhone 12", null, 999L, null, null, new BigDecimal("320")))))
+                                                        "iPhone 12", null, 999L, null, new BigDecimal("320")))))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void returns404WhenUpdatingANonexistentProduct() throws Exception {
         when(updateProductUseCase.execute(
-                        eq(999L), anyString(), any(), anyLong(), any(), any(), any(BigDecimal.class)))
+                        eq(999L), anyString(), any(), anyLong(), any(), any(BigDecimal.class)))
                 .thenThrow(new ProductNotFoundException(999L));
 
         mockMvc.perform(
@@ -220,7 +223,7 @@ class ProductControllerTest {
                                 .content(
                                         objectMapper.writeValueAsString(
                                                 new UpdateProductRequest(
-                                                        "iPhone 12", null, 1L, null, null, new BigDecimal("320")))))
+                                                        "iPhone 12", null, 1L, null, new BigDecimal("320")))))
                 .andExpect(status().isNotFound());
     }
 

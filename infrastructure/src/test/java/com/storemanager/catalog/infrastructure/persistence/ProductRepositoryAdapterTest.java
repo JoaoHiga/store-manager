@@ -52,7 +52,7 @@ class ProductRepositoryAdapterTest {
         Product updated =
                 adapter.save(
                         saved.withUpdatedFields(
-                                "iPhone 12", null, categoryId, null, null, new BigDecimal("320"), Instant.now()));
+                                "iPhone 12", null, categoryId, null, new BigDecimal("320"), Instant.now()));
 
         assertThat(updated.getSku()).isEqualTo(saved.getSku());
     }
@@ -196,5 +196,25 @@ class ProductRepositoryAdapterTest {
         Product reloaded = adapter.findById(saved.getId()).orElseThrow();
         assertThat(reloaded.getName()).isEqualTo("iPhone 12 (usado)");
         assertThat(reloaded.getStockQuantity()).isEqualTo(1);
+    }
+
+    @Test
+    void savingAStaleProductNeverOverwritesCostChangedByAPurchase() {
+        Product saved = productWith("300.00", 3);
+        // A purchase lands between the edit loading the product (cost 300) and saving it.
+        adapter.incrementStockAndAverageCost(saved.getId(), 2, new BigDecimal("330.00"), Instant.now());
+
+        adapter.save(
+                Product.reconstitute(
+                        saved.getId(), saved.getSku(), "iPhone 12 (usado)", null, categoryId, null,
+                        saved.getCostPrice(), new BigDecimal("320"), saved.getStockQuantity(), true,
+                        saved.getCreatedAt(), Instant.now()));
+        entityManager.flush();
+        entityManager.clear();
+
+        Product reloaded = adapter.findById(saved.getId()).orElseThrow();
+        assertThat(reloaded.getName()).isEqualTo("iPhone 12 (usado)");
+        assertThat(reloaded.getCostPrice()).isEqualByComparingTo("312.00");
+        assertThat(reloaded.getStockQuantity()).isEqualTo(5);
     }
 }

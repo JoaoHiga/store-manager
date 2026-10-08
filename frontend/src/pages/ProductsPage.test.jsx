@@ -70,6 +70,7 @@ describe('ProductsPage', () => {
       ),
     );
     expect(catalogApi.updateProduct.mock.calls[0][1]).not.toHaveProperty('stockQuantity');
+    expect(catalogApi.updateProduct.mock.calls[0][1]).not.toHaveProperty('costPrice');
   });
 
   it('deactivates a product', async () => {

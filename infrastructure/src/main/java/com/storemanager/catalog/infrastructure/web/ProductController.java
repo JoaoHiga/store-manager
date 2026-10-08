@@ -77,7 +77,6 @@ public class ProductController {
                         request.description(),
                         request.categoryId(),
                         request.brand(),
-                        request.costPrice(),
                         request.salePrice());
         return ProductResponse.from(product);
     }

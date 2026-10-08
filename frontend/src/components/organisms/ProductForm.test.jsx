@@ -27,6 +27,20 @@ describe('ProductForm', () => {
     });
   });
 
+  it('submits the cost price entered on create', async () => {
+    const onSubmit = vi.fn();
+    render(<ProductForm categories={categories} onSubmit={onSubmit} />);
+
+    await userEvent.type(screen.getByLabelText('Nombre'), 'iPhone 12');
+    await userEvent.selectOptions(screen.getByLabelText('Categoría'), '1');
+    await userEvent.type(screen.getByLabelText('Precio de costo'), '300');
+    await userEvent.type(screen.getByLabelText('Precio de venta'), '350');
+    await userEvent.type(screen.getByLabelText('Stock'), '3');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ costPrice: 300 }));
+  });
+
   it('rejects a negative stock quantity without calling onSubmit', async () => {
     const onSubmit = vi.fn();
     render(<ProductForm categories={categories} onSubmit={onSubmit} />);
@@ -81,7 +95,7 @@ describe('ProductForm', () => {
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument();
   });
 
-  it('neither shows nor submits stock when editing', async () => {
+  it('neither shows nor submits stock or cost price when editing', async () => {
     const onSubmit = vi.fn();
     render(
       <ProductForm
@@ -91,7 +105,7 @@ describe('ProductForm', () => {
           description: null,
           categoryId: '1',
           brand: null,
-          costPrice: null,
+          costPrice: 300,
           salePrice: 350,
           stockQuantity: 3,
         }}
@@ -101,6 +115,7 @@ describe('ProductForm', () => {
     );
 
     expect(screen.queryByLabelText('Stock')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Precio de costo')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 
     expect(onSubmit).toHaveBeenCalledWith({
@@ -108,7 +123,6 @@ describe('ProductForm', () => {
       description: null,
       categoryId: 1,
       brand: null,
-      costPrice: null,
       salePrice: 350,
     });
   });
