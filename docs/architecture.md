@@ -247,8 +247,8 @@ the API.
 <!-- BEGIN GENERATED: frontend-structure -->
 | Layer | Folder | Files |
 |---|---|---|
-| Pages | `frontend/src/pages/` | `CategoriesPage.jsx`, `ProductsPage.jsx`, `RecordSalePage.jsx`, `SalesListPage.jsx`, `SuppliersPage.jsx` |
-| Organisms | `frontend/src/components/organisms/` | `CategoryList.jsx`, `ProductForm.jsx`, `ProductList.jsx`, `SupplierForm.jsx`, `SupplierList.jsx` |
+| Pages | `frontend/src/pages/` | `CategoriesPage.jsx`, `ProductsPage.jsx`, `PurchasesPage.jsx`, `RecordSalePage.jsx`, `SalesListPage.jsx`, `SuppliersPage.jsx` |
+| Organisms | `frontend/src/components/organisms/` | `CategoryList.jsx`, `ProductForm.jsx`, `ProductList.jsx`, `PurchaseForm.jsx`, `PurchaseList.jsx`, `SupplierForm.jsx`, `SupplierList.jsx` |
 | Molecules | `frontend/src/components/molecules/` | `FormField.jsx`, `PriceTag.jsx` |
 | Atoms | `frontend/src/components/atoms/` | `Badge.jsx`, `Button.jsx`, `Input.jsx` |
 | API clients | `frontend/src/api/` | `catalogApi.js`, `purchasingApi.js`, `salesApi.js` |

@@ -1,5 +1,6 @@
 import { CategoriesPage } from './pages/CategoriesPage';
 import { ProductsPage } from './pages/ProductsPage';
+import { PurchasesPage } from './pages/PurchasesPage';
 import { RecordSalePage } from './pages/RecordSalePage';
 import { SalesListPage } from './pages/SalesListPage';
 import { SuppliersPage } from './pages/SuppliersPage';
@@ -12,6 +13,7 @@ function App() {
       <CategoriesPage />
       <ProductsPage />
       <SuppliersPage />
+      <PurchasesPage />
       <RecordSalePage />
       <SalesListPage />
     </main>

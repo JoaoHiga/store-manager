@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { activateSupplier, createSupplier, deactivateSupplier, listSuppliers } from './purchasingApi';
+import {
+  activateSupplier,
+  createSupplier,
+  deactivateSupplier,
+  getPurchase,
+  listPurchases,
+  listSuppliers,
+  recordPurchase,
+} from './purchasingApi';
 
 function mockFetchOnce(status, body) {
   global.fetch = vi.fn().mockResolvedValue({
@@ -52,5 +60,31 @@ describe('purchasingApi', () => {
     mockFetchOnce(204, null);
     await expect(activateSupplier(3)).resolves.toBeNull();
     expect(global.fetch.mock.calls[0][0]).toMatch(/\/api\/suppliers\/3\/activate$/);
+  });
+
+  it('recordPurchase posts the purchase and throws the backend message on a duplicate invoice', async () => {
+    const purchase = {
+      supplierId: 1,
+      invoiceNumber: 'F001-123',
+      purchaseDate: '2026-10-17',
+      items: [{ productId: 5, quantity: 2, unitCost: 330 }],
+    };
+    mockFetchOnce(409, { message: 'Invoice F001-123 is already recorded for this supplier' });
+
+    await expect(recordPurchase(purchase)).rejects.toThrow('Invoice F001-123 is already recorded for this supplier');
+    const [url, options] = global.fetch.mock.calls[0];
+    expect(url).toMatch(/\/api\/purchases$/);
+    expect(options.method).toBe('POST');
+    expect(JSON.parse(options.body)).toEqual(purchase);
+  });
+
+  it('listPurchases and getPurchase GET their endpoints', async () => {
+    mockFetchOnce(200, [{ id: 4, invoiceNumber: 'F001-123' }]);
+    await expect(listPurchases()).resolves.toEqual([{ id: 4, invoiceNumber: 'F001-123' }]);
+    expect(global.fetch.mock.calls[0][0]).toMatch(/\/api\/purchases$/);
+
+    mockFetchOnce(200, { id: 4, items: [] });
+    await expect(getPurchase(4)).resolves.toEqual({ id: 4, items: [] });
+    expect(global.fetch.mock.calls[0][0]).toMatch(/\/api\/purchases\/4$/);
   });
 });

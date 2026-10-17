@@ -48,3 +48,20 @@ export function activateSupplier(id) {
     method: 'PATCH',
   });
 }
+
+/** The backend rejects an inactive supplier/product (400), an unknown one (404) and a duplicate supplier invoice (409). */
+export function recordPurchase(purchase) {
+  return request('/api/purchases', {
+    method: 'POST',
+    body: JSON.stringify(purchase),
+  });
+}
+
+/** Summaries (no lines), newest first. */
+export function listPurchases() {
+  return request('/api/purchases');
+}
+
+export function getPurchase(id) {
+  return request(`/api/purchases/${id}`);
+}
