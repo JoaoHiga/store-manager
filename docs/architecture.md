@@ -145,7 +145,8 @@ The backend is split into four business domains. Each one has the same internal 
 - **catalog** — products and categories.
 - **sales** — recording, listing and cancelling sales.
 - **invoicing** — electronic vouchers (boleta/factura), their issuance, retries and voiding via NubeFacT.
-- **purchasing** — suppliers (and, as it is built, purchases that bring stock in).
+- **purchasing** — suppliers and purchases. A purchase is how stock comes in: it increments product stock
+  and recomputes the cost price.
 - **shared** — not a business domain: cross-cutting rules and ports every domain may use, such as
   `RucValidator` (SUNAT RUC format and check digit) and `TransactionRunner` (run a unit of work
   atomically).
@@ -155,7 +156,7 @@ The backend is split into four business domains. Each one has the same internal 
 |---|---|---|---|---|
 | `catalog` | `Category`, `Product` | `CategoryRepositoryPort`, `ProductRepositoryPort` | `CreateCategoryUseCase`, `CreateProductUseCase`, `DeactivateProductUseCase`, `ListCategoriesUseCase`, `ListProductsUseCase`, `ReactivateProductUseCase`, `UpdateProductUseCase` | `config/ (2)`, `persistence/ (6)`, `web/ (8)` |
 | `invoicing` | `Voucher`, `VoucherStatus`, `VoucherType` | `InvoicingProvider`, `VoucherRepositoryPort` | `IssueVoucherForSaleUseCase`, `RetryPendingVoucherUseCase`, `VoidSaleUseCase` | `config/ (1)`, `nubefact/ (9)`, `persistence/ (5)`, `scheduling/ (1)` |
-| `purchasing` | `Supplier` | `SupplierRepositoryPort` | `CreateSupplierUseCase`, `DeactivateSupplierUseCase`, `ListSuppliersUseCase`, `ReactivateSupplierUseCase` | `persistence/ (3)`, `web/ (3)` |
+| `purchasing` | `Purchase`, `PurchaseItem`, `Supplier` | `PurchaseRepositoryPort`, `SupplierRepositoryPort` | `CreateSupplierUseCase`, `DeactivateSupplierUseCase`, `GetPurchaseUseCase`, `ListPurchasesUseCase`, `ListSuppliersUseCase`, `ReactivateSupplierUseCase`, `RecordPurchaseUseCase` | `persistence/ (7)`, `web/ (9)` |
 | `sales` | `BuyerDocumentValidator`, `Sale`, `SaleItem`, `SaleStatus` | `SaleRepositoryPort` | `CancelSaleUseCase`, `GetSaleUseCase`, `ListSalesUseCase`, `RecordSaleUseCase`, `RetrySaleVoucherUseCase` | `persistence/ (4)`, `web/ (7)` |
 | `shared` | `RucValidator` | `TransactionRunner` | — | `transaction/ (1)` |
 <!-- END GENERATED: backend-domains -->
@@ -169,6 +170,7 @@ The backend is split into four business domains. Each one has the same internal 
 | `ProductRepositoryPort` | `application/…/catalog/domain/port/ProductRepositoryPort.java` | `infrastructure/…/catalog/infrastructure/persistence/ProductRepositoryAdapter.java` |
 | `InvoicingProvider` | `application/…/invoicing/domain/port/InvoicingProvider.java` | `infrastructure/…/invoicing/infrastructure/nubefact/NubeFactInvoicingAdapter.java` |
 | `VoucherRepositoryPort` | `application/…/invoicing/domain/port/VoucherRepositoryPort.java` | `infrastructure/…/invoicing/infrastructure/persistence/VoucherRepositoryAdapter.java` |
+| `PurchaseRepositoryPort` | `application/…/purchasing/domain/port/PurchaseRepositoryPort.java` | `infrastructure/…/purchasing/infrastructure/persistence/PurchaseRepositoryAdapter.java` |
 | `SupplierRepositoryPort` | `application/…/purchasing/domain/port/SupplierRepositoryPort.java` | `infrastructure/…/purchasing/infrastructure/persistence/SupplierRepositoryAdapter.java` |
 | `SaleRepositoryPort` | `application/…/sales/domain/port/SaleRepositoryPort.java` | `infrastructure/…/sales/infrastructure/persistence/SaleRepositoryAdapter.java` |
 | `TransactionRunner` | `application/…/shared/domain/port/TransactionRunner.java` | `infrastructure/…/shared/infrastructure/transaction/SpringTransactionRunner.java` |
@@ -201,6 +203,9 @@ the API.
 | PUT | `/api/products/{id}` | `ProductController.update` |
 | PATCH | `/api/products/{id}/deactivate` | `ProductController.deactivate` |
 | PATCH | `/api/products/{id}/activate` | `ProductController.activate` |
+| POST | `/api/purchases` | `PurchaseController.record` |
+| GET | `/api/purchases` | `PurchaseController.list` |
+| GET | `/api/purchases/{id}` | `PurchaseController.get` |
 | POST | `/api/suppliers` | `SupplierController.create` |
 | GET | `/api/suppliers` | `SupplierController.list` |
 | PATCH | `/api/suppliers/{id}/deactivate` | `SupplierController.deactivate` |
@@ -217,6 +222,7 @@ the API.
 <!-- BEGIN GENERATED: migrations -->
 | Version | Description |
 |---|---|
+| V10 | create purchases |
 | V1 | init catalog |
 | V2 | add cost price check |
 | V3 | create sales |
@@ -285,6 +291,24 @@ Other flows follow the same shape: page → API client → controller → use ca
 Voiding a sale (`POST /api/sales/{id}/void`) asks NubeFacT to void the voucher, marks it `VOIDED` and the
 sale `CANCELLED`.
 
+### Recording a purchase
+
+`POST /api/purchases` → **`PurchaseController.record`** → **`RecordPurchaseUseCase`**, all inside one
+`TransactionRunner` transaction (there is no remote call, so there is no second phase):
+
+1. checks the supplier exists and is active, and every product exists and is active;
+2. builds the `Purchase` (which validates the invoice number, the date, the lines and computes its total),
+   rejects a supplier invoice number already registered, and saves it. The unique
+   `(supplier_id, invoice_number)` constraint is the race-safe guard behind that check;
+3. per line, calls `ProductRepositoryPort.incrementStockAndAverageCost`: **one conditional `UPDATE`**
+   (`ProductJpaRepository`) that adds the quantity to the stock and sets the cost price to the weighted
+   average, both computed from the row's current values (`... WHERE id = :id AND active = true`). A
+   concurrent sale's decrement and this increment queue on the row lock and each applies on top of the
+   other, so neither is lost. If the product was deactivated meanwhile, the update changes nothing, the use
+   case throws and the whole purchase rolls back.
+
+`PurchaseConcurrencyPostgresTest` proves the no-lost-update and rollback behavior on a real PostgreSQL.
+
 ## 6. Known risks and gaps
 
 Keep this list honest: add a risk when you find it, remove it in the change that fixes it.
@@ -293,7 +317,13 @@ Keep this list honest: add a risk when you find it, remove it in the change that
   do not coordinate. If both hit the same settled `PENDING` voucher at the same moment, it could be issued
   twice. Unlikely with one cashier, but there is no lock.
 - **No authentication.** Anyone who can reach the API can record and void sales.
-- **No stock entry.** Stock only goes down (sales); there is no purchase, restock or adjustment flow.
-  Editing a product cannot change its stock (only the initial stock is set at creation).
+- **Stock only moves through sales and purchases.** Purchases bring stock in (and recompute cost price), but
+  there is no manual adjustment (shrinkage, physical counts) and no stock-movement ledger, so the current
+  stock cannot be explained movement by movement. Cancelling a sale does not restore its stock
+  (`CancelSaleUseCase`). Editing a product cannot change its stock.
+- **A product edit can undo a purchase's cost price.** `costPrice` is a normal updatable column: saving an
+  edit form loaded before a purchase writes the old cost back over the weighted average the purchase just
+  computed. Stock is protected (`updatable = false`); cost is not.
+- **Purchases cannot be voided or corrected.** A wrong purchase can only be offset by hand.
 - **Not deployed.** CI tests but does not deploy. CORS only allows `http://localhost:5173`.
 - **Buyer name is a placeholder** on vouchers (`"Cliente <document>"`). See `odd/tasks/buyer-name-lookup.md`.

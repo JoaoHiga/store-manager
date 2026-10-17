@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Manage the shop's categories and products: create, list, edit, filter, and deactivate them, with basic stock quantity tracking. This is the foundational catalog capability the rest of the inventory app builds on.
+Manage the shop's categories and products: create, list, edit, filter, and deactivate them, with basic stock quantity and cost price tracking. After creation, stock goes down through sales (`sales`) and up through purchases (`purchasing`), and each purchase also recomputes the cost price as a weighted average. This is the foundational catalog capability the rest of the inventory app builds on.
 
 ## Requirements
 
@@ -77,7 +77,7 @@ The system MUST list products, MUST support filtering by `categoryId`, and MUST 
 
 ### Requirement: Product Update
 
-The system MUST allow editing an existing product's `name` (at most 160 characters), `description` (at most 1000 characters), `brand` (at most 80 characters), `categoryId`, `costPrice` (>= 0 when present), and `salePrice`. The system MUST NOT allow `sku` or `stockQuantity` to be modified through this capability: stock is set only as the initial stock at creation and afterwards changes only through stock operations (sales, purchases). A `stockQuantity` sent on update MUST be ignored, and saving an edit MUST NOT undo a stock change made concurrently (for example, a sale recorded while the edit form was open).
+The system MUST allow editing an existing product's `name` (at most 160 characters), `description` (at most 1000 characters), `brand` (at most 80 characters), `categoryId`, `costPrice` (>= 0 when present), and `salePrice`. The system MUST NOT allow `sku` or `stockQuantity` to be modified through this capability: stock is set only as the initial stock at creation and afterwards changes only through stock operations (sales, purchases). A `stockQuantity` sent on update MUST be ignored, and saving an edit MUST NOT undo a stock change made concurrently (for example, a sale recorded while the edit form was open). `costPrice` is also recomputed by every recorded purchase as a weighted average of the existing stock and the purchased units (see `purchasing`); an edit sets it to the given value.
 (Previously: `costPrice` had no lower bound, and `name`/`brand`/`description` had no upper bound, on update. `stockQuantity` was editable as an absolute value, which silently undid concurrent sales.)
 
 #### Scenario: Update a product's sale price
