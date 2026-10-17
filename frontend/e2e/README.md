@@ -7,8 +7,20 @@ boundary where both real bugs this suite was built for (`explicit-voucher-type-s
 PR #22 follow-up) lived. Phase A (`infrastructure/src/test/java/com/storemanager/e2e/`) covers the
 backend in isolation with Testcontainers; this covers the full path through a real browser.
 
+Specs:
+
+- `sale-voucher-flow.spec.js` — a sale's chosen voucher type (BOLETA/FACTURA) round-trips through the
+  real request, response and sales list.
+- `purchase-flow.spec.js` — create a supplier, record a purchase, see it listed, check the raised stock
+  and the weighted-average cost price (read through `GET /api/products`, since no page shows cost), and
+  see a duplicate supplier invoice rejected with the backend's `409` message. It generates a random valid
+  RUC per run, so it also passes against a reused Postgres container.
+
 ## Prerequisites
 
+- **Playwright's Chromium** installed once per machine: `npx playwright install chromium` (in
+  `frontend/`). Without it every spec fails at `browserType.launch` with "Executable doesn't exist";
+  it also has to be re-run after a `@playwright/test` upgrade.
 - **Docker Desktop running** (WSL-integrated on Windows). `playwright.config.js` boots a dedicated,
   throwaway Postgres container on port **5433** — deliberately different from the real dev
   database on 5432, so a Phase B run never touches your actual local data.
