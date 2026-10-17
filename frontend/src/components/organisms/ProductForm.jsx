@@ -45,7 +45,7 @@ export function ProductForm({ categories, initialValues, onSubmit, onCancel }) {
       return;
     }
     if (!values.categoryId) {
-      setError('Elegí una categoría');
+      setError('Seleccione una categoría');
       return;
     }
     if (!values.salePrice || Number(values.salePrice) <= 0) {
@@ -87,7 +87,7 @@ export function ProductForm({ categories, initialValues, onSubmit, onCancel }) {
       <div className="form-field">
         <label htmlFor="categoryId">Categoría</label>
         <select id="categoryId" value={values.categoryId} onChange={handleChange('categoryId')}>
-          <option value="">Elegí una categoría</option>
+          <option value="">Seleccione una categoría</option>
           {categories.map((category) => (
             <option key={category.id} value={category.id}>
               {category.name}
