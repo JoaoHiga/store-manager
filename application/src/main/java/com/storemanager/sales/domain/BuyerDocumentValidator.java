@@ -1,8 +1,8 @@
 package com.storemanager.sales.domain;
 
+import com.storemanager.shared.domain.RucValidator;
 import java.math.BigDecimal;
 import java.util.Locale;
-import java.util.Set;
 
 /**
  * Stateless format validation for a {@link Sale}'s buyer reference, plus the S/700 "boleta
@@ -12,20 +12,13 @@ import java.util.Set;
  * fact this needs (the buyer fields, the sale total) is already owned by {@link Sale} at
  * construction time, no repository access required.
  *
- * <p>DNI: exactly 8 numeric digits. RUC: 11 numeric digits, a taxpayer-type prefix in {@code {10,
- * 15, 17, 20}}, and a modulo-11 check digit (weights {@code 5,4,3,2,7,6,5,4,3,2} on the first 10
- * digits; {@code checkDigit = 11 - (sum mod 11)}, with {@code 10 -> 0} and {@code 11 -> 1}).
- * Verified against SUNAT's own real RUC {@code 20131312955} (weighted sum 94, {@code 94 mod 11 =
- * 6}, {@code 11 - 6 = 5}). Carnet de Extranjería / Pasaporte: no authoritative fixed format was
+ * <p>DNI: exactly 8 numeric digits. RUC: delegated to the shared {@link RucValidator}. Carnet de Extranjería / Pasaporte: no authoritative fixed format was
  * found (research.md), so only light validation applies — non-blank, 5-20 characters.
  */
 public final class BuyerDocumentValidator {
 
     /** Below this total a sale may be recorded with no buyer document at all ("boleta simple"). */
     public static final BigDecimal BOLETA_SIMPLE_THRESHOLD = new BigDecimal("700.00");
-
-    private static final Set<String> VALID_RUC_PREFIXES = Set.of("10", "15", "17", "20");
-    private static final int[] RUC_CHECK_DIGIT_WEIGHTS = {5, 4, 3, 2, 7, 6, 5, 4, 3, 2};
 
     private static final int CE_PASAPORTE_MIN_LENGTH = 5;
     private static final int CE_PASAPORTE_MAX_LENGTH = 20;
@@ -60,7 +53,7 @@ public final class BuyerDocumentValidator {
 
         switch (buyerDocumentType.toUpperCase(Locale.ROOT)) {
             case "DNI" -> validateDni(buyerDocumentNumber);
-            case "RUC" -> validateRuc(buyerDocumentNumber);
+            case "RUC" -> RucValidator.validate(buyerDocumentNumber);
             case "CE", "PASAPORTE", "PASSPORT" -> validateLight(buyerDocumentNumber);
             default -> throw new IllegalArgumentException("Unsupported buyer documentType: " + buyerDocumentType);
         }
@@ -69,30 +62,6 @@ public final class BuyerDocumentValidator {
     private static void validateDni(String number) {
         if (!number.matches("\\d{8}")) {
             throw new IllegalArgumentException("DNI must be exactly 8 numeric digits");
-        }
-    }
-
-    private static void validateRuc(String number) {
-        if (!number.matches("\\d{11}")) {
-            throw new IllegalArgumentException("RUC must be exactly 11 numeric digits");
-        }
-        String prefix = number.substring(0, 2);
-        if (!VALID_RUC_PREFIXES.contains(prefix)) {
-            throw new IllegalArgumentException("RUC prefix must be one of " + VALID_RUC_PREFIXES);
-        }
-        int weightedSum = 0;
-        for (int i = 0; i < RUC_CHECK_DIGIT_WEIGHTS.length; i++) {
-            weightedSum += Character.getNumericValue(number.charAt(i)) * RUC_CHECK_DIGIT_WEIGHTS[i];
-        }
-        int expectedCheckDigit = 11 - (weightedSum % 11);
-        if (expectedCheckDigit == 10) {
-            expectedCheckDigit = 0;
-        } else if (expectedCheckDigit == 11) {
-            expectedCheckDigit = 1;
-        }
-        int actualCheckDigit = Character.getNumericValue(number.charAt(10));
-        if (expectedCheckDigit != actualCheckDigit) {
-            throw new IllegalArgumentException("Invalid RUC check digit");
         }
     }
 

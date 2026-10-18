@@ -132,7 +132,7 @@ not change. And the rules can be tested with in-memory fakes, without a database
 
 ### Domains
 
-The backend is split into three business domains. Each one has the same internal layout:
+The backend is split into four business domains. Each one has the same internal layout:
 
 ```
 <domain>/
@@ -145,16 +145,19 @@ The backend is split into three business domains. Each one has the same internal
 - **catalog** — products and categories.
 - **sales** — recording, listing and cancelling sales.
 - **invoicing** — electronic vouchers (boleta/factura), their issuance, retries and voiding via NubeFacT.
-- **shared** — not a business domain: cross-cutting ports every domain may use, such as
-  `TransactionRunner` (run a unit of work atomically).
+- **purchasing** — suppliers (and, as it is built, purchases that bring stock in).
+- **shared** — not a business domain: cross-cutting rules and ports every domain may use, such as
+  `RucValidator` (SUNAT RUC format and check digit) and `TransactionRunner` (run a unit of work
+  atomically).
 
 <!-- BEGIN GENERATED: backend-domains -->
 | Domain | Domain model (`domain/`) | Ports (`domain/port/`) | Use cases (`usecase/`) | Infrastructure (files) |
 |---|---|---|---|---|
 | `catalog` | `Category`, `Product` | `CategoryRepositoryPort`, `ProductRepositoryPort` | `CreateCategoryUseCase`, `CreateProductUseCase`, `DeactivateProductUseCase`, `ListCategoriesUseCase`, `ListProductsUseCase`, `ReactivateProductUseCase`, `UpdateProductUseCase` | `config/ (2)`, `persistence/ (6)`, `web/ (8)` |
 | `invoicing` | `Voucher`, `VoucherStatus`, `VoucherType` | `InvoicingProvider`, `VoucherRepositoryPort` | `IssueVoucherForSaleUseCase`, `RetryPendingVoucherUseCase`, `VoidSaleUseCase` | `config/ (1)`, `nubefact/ (9)`, `persistence/ (5)`, `scheduling/ (1)` |
+| `purchasing` | `Supplier` | `SupplierRepositoryPort` | `CreateSupplierUseCase`, `DeactivateSupplierUseCase`, `ListSuppliersUseCase`, `ReactivateSupplierUseCase` | `persistence/ (3)`, `web/ (3)` |
 | `sales` | `BuyerDocumentValidator`, `Sale`, `SaleItem`, `SaleStatus` | `SaleRepositoryPort` | `CancelSaleUseCase`, `GetSaleUseCase`, `ListSalesUseCase`, `RecordSaleUseCase`, `RetrySaleVoucherUseCase` | `persistence/ (4)`, `web/ (7)` |
-| `shared` | — | `TransactionRunner` | — | `transaction/ (1)` |
+| `shared` | `RucValidator` | `TransactionRunner` | — | `transaction/ (1)` |
 <!-- END GENERATED: backend-domains -->
 
 ### Ports and the adapters that implement them
@@ -166,6 +169,7 @@ The backend is split into three business domains. Each one has the same internal
 | `ProductRepositoryPort` | `application/…/catalog/domain/port/ProductRepositoryPort.java` | `infrastructure/…/catalog/infrastructure/persistence/ProductRepositoryAdapter.java` |
 | `InvoicingProvider` | `application/…/invoicing/domain/port/InvoicingProvider.java` | `infrastructure/…/invoicing/infrastructure/nubefact/NubeFactInvoicingAdapter.java` |
 | `VoucherRepositoryPort` | `application/…/invoicing/domain/port/VoucherRepositoryPort.java` | `infrastructure/…/invoicing/infrastructure/persistence/VoucherRepositoryAdapter.java` |
+| `SupplierRepositoryPort` | `application/…/purchasing/domain/port/SupplierRepositoryPort.java` | `infrastructure/…/purchasing/infrastructure/persistence/SupplierRepositoryAdapter.java` |
 | `SaleRepositoryPort` | `application/…/sales/domain/port/SaleRepositoryPort.java` | `infrastructure/…/sales/infrastructure/persistence/SaleRepositoryAdapter.java` |
 | `TransactionRunner` | `application/…/shared/domain/port/TransactionRunner.java` | `infrastructure/…/shared/infrastructure/transaction/SpringTransactionRunner.java` |
 <!-- END GENERATED: ports-adapters -->
@@ -197,6 +201,10 @@ the API.
 | PUT | `/api/products/{id}` | `ProductController.update` |
 | PATCH | `/api/products/{id}/deactivate` | `ProductController.deactivate` |
 | PATCH | `/api/products/{id}/activate` | `ProductController.activate` |
+| POST | `/api/suppliers` | `SupplierController.create` |
+| GET | `/api/suppliers` | `SupplierController.list` |
+| PATCH | `/api/suppliers/{id}/deactivate` | `SupplierController.deactivate` |
+| PATCH | `/api/suppliers/{id}/activate` | `SupplierController.activate` |
 | POST | `/api/sales` | `SaleController.record` |
 | GET | `/api/sales` | `SaleController.list` |
 | GET | `/api/sales/{id}` | `SaleController.get` |
@@ -217,6 +225,7 @@ the API.
 | V6 | make buyer document nullable |
 | V7 | widen voucher rejection reason |
 | V8 | reseed voucher correlativo series |
+| V9 | create suppliers |
 <!-- END GENERATED: migrations -->
 
 ## 4. Frontend architecture
@@ -232,11 +241,11 @@ the API.
 <!-- BEGIN GENERATED: frontend-structure -->
 | Layer | Folder | Files |
 |---|---|---|
-| Pages | `frontend/src/pages/` | `CategoriesPage.jsx`, `ProductsPage.jsx`, `RecordSalePage.jsx`, `SalesListPage.jsx` |
-| Organisms | `frontend/src/components/organisms/` | `CategoryList.jsx`, `ProductForm.jsx`, `ProductList.jsx` |
+| Pages | `frontend/src/pages/` | `CategoriesPage.jsx`, `ProductsPage.jsx`, `RecordSalePage.jsx`, `SalesListPage.jsx`, `SuppliersPage.jsx` |
+| Organisms | `frontend/src/components/organisms/` | `CategoryList.jsx`, `ProductForm.jsx`, `ProductList.jsx`, `SupplierForm.jsx`, `SupplierList.jsx` |
 | Molecules | `frontend/src/components/molecules/` | `FormField.jsx`, `PriceTag.jsx` |
 | Atoms | `frontend/src/components/atoms/` | `Badge.jsx`, `Button.jsx`, `Input.jsx` |
-| API clients | `frontend/src/api/` | `catalogApi.js`, `salesApi.js` |
+| API clients | `frontend/src/api/` | `catalogApi.js`, `purchasingApi.js`, `salesApi.js` |
 <!-- END GENERATED: frontend-structure -->
 
 ## 5. Main flow: recording a sale

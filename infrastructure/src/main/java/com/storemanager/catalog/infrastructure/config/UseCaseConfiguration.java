@@ -14,6 +14,11 @@ import com.storemanager.invoicing.domain.port.VoucherRepositoryPort;
 import com.storemanager.invoicing.usecase.IssueVoucherForSaleUseCase;
 import com.storemanager.invoicing.usecase.RetryPendingVoucherUseCase;
 import com.storemanager.invoicing.usecase.VoidSaleUseCase;
+import com.storemanager.purchasing.domain.port.SupplierRepositoryPort;
+import com.storemanager.purchasing.usecase.CreateSupplierUseCase;
+import com.storemanager.purchasing.usecase.DeactivateSupplierUseCase;
+import com.storemanager.purchasing.usecase.ListSuppliersUseCase;
+import com.storemanager.purchasing.usecase.ReactivateSupplierUseCase;
 import com.storemanager.sales.domain.port.SaleRepositoryPort;
 import com.storemanager.sales.usecase.CancelSaleUseCase;
 import com.storemanager.sales.usecase.GetSaleUseCase;
@@ -119,5 +124,25 @@ public class UseCaseConfiguration {
     @Bean
     public CancelSaleUseCase cancelSaleUseCase(VoidSaleUseCase voidSaleUseCase, SaleRepositoryPort saleRepositoryPort) {
         return new CancelSaleUseCase(voidSaleUseCase, saleRepositoryPort);
+    }
+
+    @Bean
+    public CreateSupplierUseCase createSupplierUseCase(SupplierRepositoryPort supplierRepositoryPort) {
+        return new CreateSupplierUseCase(supplierRepositoryPort);
+    }
+
+    @Bean
+    public ListSuppliersUseCase listSuppliersUseCase(SupplierRepositoryPort supplierRepositoryPort) {
+        return new ListSuppliersUseCase(supplierRepositoryPort);
+    }
+
+    @Bean
+    public DeactivateSupplierUseCase deactivateSupplierUseCase(SupplierRepositoryPort supplierRepositoryPort) {
+        return new DeactivateSupplierUseCase(supplierRepositoryPort);
+    }
+
+    @Bean
+    public ReactivateSupplierUseCase reactivateSupplierUseCase(SupplierRepositoryPort supplierRepositoryPort) {
+        return new ReactivateSupplierUseCase(supplierRepositoryPort);
     }
 }
