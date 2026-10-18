@@ -24,6 +24,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Spring Boot majors need a planned migration (odd/tasks/spring-boot-upgrade.md), not a weekly PR.
+    ignore:
+      - dependency-name: "org.springframework.boot:*"
+        update-types: ["version-update:semver-major"]
     groups:
       maven-minor-patch:
         patterns: ["*"]
