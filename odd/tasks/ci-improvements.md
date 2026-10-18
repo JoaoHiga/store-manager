@@ -12,9 +12,9 @@ Make the CI workflow (`.github/workflows/ci.yml`) catch more defects, cost less,
   (`mvn -B clean test`), frontend unit (`npm test`), architecture doc (generator tests + `--check`),
   full-stack E2E (Playwright). A full run takes about 1.6 minutes.
 - SonarCloud runs as automatic analysis (GitHub app), outside the workflow, without coverage.
-  Its duplication gate (3% on new code) failed on PRs #32 (5.7%) and #33 (3.2%), Verified on
-  2026-10-18 once the Sonar project was public: tests contribute 0 duplicated lines; all 464 come from
-  domain entities and their `*JpaEntity` twins (7 pairs), a deliberate hexagonal boundary.
+  Its duplication gate (3% on new code) failed on PRs #32 (5.7%) and #33 (3.2%).
+- Verified on 2026-10-18, once the Sonar project was public: tests contribute 0 duplicated lines; all
+  464 come from domain entities and their `*JpaEntity` twins (7 pairs), a deliberate hexagonal boundary.
 - Branch protection was unavailable (private repo on GitHub Free). The user is making the repo
   public, which enables it.
 
@@ -77,7 +77,7 @@ superseded by a newer push (harmless, 7-day retention).
 
 ## Next step
 
-Push the branch and open a PR so the workflow proves itself on CI.
+PR #36 holds C2-C9 and C11; its CI passes. The user merges it.
 Remaining task: C1 (GitHub settings, after the PR).
 C4 can only be proven after merge: `.sonarcloud.properties` is read from `main` only. Check that
 `duplicated_lines` on `main` drops from 464 to near 0. The glob support in `sonar.cpd.exclusions` comes
