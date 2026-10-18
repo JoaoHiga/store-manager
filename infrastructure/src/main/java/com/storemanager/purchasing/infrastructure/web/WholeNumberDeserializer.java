@@ -1,10 +1,10 @@
 package com.storemanager.purchasing.infrastructure.web;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
-import java.io.IOException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.deser.std.StdDeserializer;
 
 /**
  * Accepts only a JSON integer that fits an {@code int}. Jackson's default would truncate {@code 1.5} to
@@ -18,7 +18,7 @@ final class WholeNumberDeserializer extends StdDeserializer<Integer> {
     }
 
     @Override
-    public Integer deserialize(JsonParser parser, DeserializationContext context) throws IOException {
+    public Integer deserialize(JsonParser parser, DeserializationContext context) throws JacksonException {
         if (!parser.hasToken(JsonToken.VALUE_NUMBER_INT)) {
             return (Integer) context.handleUnexpectedToken(Integer.class, parser);
         }

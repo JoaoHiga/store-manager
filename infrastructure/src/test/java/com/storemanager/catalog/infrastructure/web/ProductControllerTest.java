@@ -16,7 +16,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storemanager.catalog.domain.Product;
 import com.storemanager.catalog.usecase.CategoryNotFoundException;
 import com.storemanager.catalog.usecase.CreateProductUseCase;
@@ -30,10 +29,11 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 @WebMvcTest(ProductController.class)
 class ProductControllerTest {
@@ -41,11 +41,11 @@ class ProductControllerTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
 
-    @MockBean private CreateProductUseCase createProductUseCase;
-    @MockBean private ListProductsUseCase listProductsUseCase;
-    @MockBean private UpdateProductUseCase updateProductUseCase;
-    @MockBean private DeactivateProductUseCase deactivateProductUseCase;
-    @MockBean private ReactivateProductUseCase reactivateProductUseCase;
+    @MockitoBean private CreateProductUseCase createProductUseCase;
+    @MockitoBean private ListProductsUseCase listProductsUseCase;
+    @MockitoBean private UpdateProductUseCase updateProductUseCase;
+    @MockitoBean private DeactivateProductUseCase deactivateProductUseCase;
+    @MockitoBean private ReactivateProductUseCase reactivateProductUseCase;
 
     private static Product sampleProduct(long id, boolean active) {
         Instant now = Instant.now();

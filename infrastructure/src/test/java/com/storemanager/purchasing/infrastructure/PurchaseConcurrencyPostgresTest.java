@@ -42,13 +42,13 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * Proves, against the production database engine, that recording a purchase never loses a concurrent sale's
@@ -62,14 +62,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class PurchaseConcurrencyPostgresTest {
 
-    static {
-        // Same docker-java API pin as SaleFlowE2ETest (testcontainers/testcontainers-java#11212).
-        System.setProperty("api.version", "1.44");
-    }
-
     @Container
     @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine");
 
     private static final String SUPPLIER_RUC = "20131312955";
 
@@ -83,7 +78,7 @@ class PurchaseConcurrencyPostgresTest {
     @Autowired private JdbcTemplate jdbcTemplate;
 
     /** No network: issuance fails and the voucher stays PENDING, which never affects the sale's stock. */
-    @MockBean private InvoicingProvider invoicingProvider;
+    @MockitoBean private InvoicingProvider invoicingProvider;
 
     private Long categoryId;
     private Long supplierId;

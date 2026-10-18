@@ -14,7 +14,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storemanager.purchasing.domain.Supplier;
 import com.storemanager.purchasing.usecase.CreateSupplierUseCase;
 import com.storemanager.purchasing.usecase.DeactivateSupplierUseCase;
@@ -26,10 +25,11 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 @WebMvcTest(SupplierController.class)
 class SupplierControllerTest {
@@ -39,10 +39,10 @@ class SupplierControllerTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
 
-    @MockBean private CreateSupplierUseCase createSupplierUseCase;
-    @MockBean private ListSuppliersUseCase listSuppliersUseCase;
-    @MockBean private DeactivateSupplierUseCase deactivateSupplierUseCase;
-    @MockBean private ReactivateSupplierUseCase reactivateSupplierUseCase;
+    @MockitoBean private CreateSupplierUseCase createSupplierUseCase;
+    @MockitoBean private ListSuppliersUseCase listSuppliersUseCase;
+    @MockitoBean private DeactivateSupplierUseCase deactivateSupplierUseCase;
+    @MockitoBean private ReactivateSupplierUseCase reactivateSupplierUseCase;
 
     private static Supplier sampleSupplier(boolean active) {
         Instant now = Instant.now();

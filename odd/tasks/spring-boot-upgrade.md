@@ -1,6 +1,6 @@
 # Feature: Spring Boot upgrade path
 
-Status: **in progress** on branch `chore/spring-boot-3.5` (2026-10-18).
+Status: **in progress**. S1+S2 delivered in PR #54 (merged 2026-10-18); S3 on branch `chore/spring-boot-4`.
 
 ## Objective
 
@@ -19,11 +19,29 @@ The Spring Boot 4.0 migration guide also lists `@MockBean` removal (use `@Mockit
 
 - [x] S1 Dependabot: ignore Spring Boot major updates; keep minor/patch.
 - [x] S2 Upgrade Spring Boot 3.3.4 -> 3.5.16 (latest 3.5.x on Maven Central); backend tests + E2E green.
-- [ ] S3 (separate feature, later) Migrate to Spring Boot 4.
+- [ ] S3 Migrate to Spring Boot 4.1.1:
+  - [x] S3a Build + code compile and `mvn clean test` green, in one commit (a BOM bump alone cannot compile):
+        modular starters, Testcontainers 2 artifacts, `@MockBean` -> `@MockitoBean`, test-slice imports,
+        `TestRestTemplate`, Jackson 3 (`WholeNumberDeserializer`, `PurchaseItemRequest`, test `ObjectMapper`).
+  - [ ] S3b Runtime proof: full E2E, Flyway startup, actuator health, Hibernate 7 bulk updates on Postgres.
+  - [ ] S3c Docs: regenerate `architecture.md`, hand-written stack lines, stale comments.
 
 ## Checks
 
 - `mvn clean test` and `npm run test:e2e` (in `frontend/`) pass; `architecture-doc.mjs --check` passes.
+
+## S3 impact map (explorer, 2026-10-18; Maven Central checked)
+
+- Boot 4.1.1 BOM manages: Testcontainers 2.0.5 (artifacts renamed `testcontainers-postgresql`,
+  `testcontainers-junit-jupiter`), JUnit Jupiter 6.0.3, Jackson 3.1.5, Hibernate 7.4.5.Final, Flyway 12.4.0.
+- Starters: `spring-boot-starter-web` -> `-webmvc`; Flyway needs `spring-boot-starter-flyway`; test companions
+  `-webmvc-test`, `-data-jpa-test`; `spring-boot-resttestclient` exists (TestRestTemplate, 2 tests).
+- Code: `@MockBean` 22 uses in 7 test files; `@WebMvcTest` 5, `@DataJpaTest` 8, `@SpringBootTest` 3 (no
+  MockMvc there, so `@AutoConfigureMockMvc` not needed). Jackson databind in main: `WholeNumberDeserializer`
+  (`throws IOException` override), `PurchaseItemRequest`; 4 tests autowire `ObjectMapper`.
+- Risk: `spring.jackson.deserialization.accept-float-as-int` (application.yml) under Jackson 3; Hibernate 7
+  on JPQL bulk updates with `CASE`/`round`; `api.version=1.44` docker-java workaround may become removable.
+- Forecast: ~250 authored lines, one PR.
 
 ## Progress
 - S1 (route: inline, 1 file): `ignore` for `org.springframework.boot:*` semver-major in the Maven block. YAML parses.
@@ -35,3 +53,13 @@ The Spring Boot 4.0 migration guide also lists `@MockBean` removal (use `@Mockit
 ## Next step
 
 Push + PR (user). Close #37 once merged; S3 becomes its own feature.
+- S3a (route: delegated writer, 23 files +140/-127): Boot 4.1.1; starters webmvc, flyway, webmvc-test,
+  data-jpa-test, resttestclient + restclient (test; `TestRestTemplate` needs `RestTemplateBuilder`);
+  Testcontainers 2 artifacts and non-generic `org.testcontainers.postgresql.PostgreSQLContainer`; 22
+  `@MockBean` -> `@MockitoBean`; Boot 4 test-slice packages; `@AutoConfigureTestRestTemplate` on the 2
+  RANDOM_PORT tests; Jackson 3 in `WholeNumberDeserializer` (`throws JacksonException`) and
+  `PurchaseItemRequest`. Docker-java `api.version=1.44` workaround removed (not needed with TC 2.0.5).
+  RED: POM unresolvable, then compile errors, then 9 TestRestTemplate errors. GREEN: `mvn clean test`
+  application 197/0/0, infrastructure 151/0/0 (incl. Testcontainers tests); no assertions changed.
+  Parent spot check: no `@MockBean`/Jackson 2 databind/`api.version` left; `-DskipTests package` exit 0.
+  Open for S3b: NubeFacT RestClient JSON under Jackson 3, Hibernate 7 bulk updates and Flyway 12 on Postgres.
