@@ -19,3 +19,6 @@ dist/
 
 # Local secrets — never committed (see .env.nubefact.example)
 .env.nubefact.local
+
+# Skill registry: regenerated locally by gentle-ai on every prompt, with machine-specific paths.
+.atl/
