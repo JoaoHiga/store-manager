@@ -4,7 +4,7 @@ Status: **in progress** on branch `ci/pipeline-hardening` (resumed 2026-10-18). 
 
 ## Objective
 
-Make the CI workflow (`.github/workflows/e2e.yml`) catch more defects, cost less, and enforce merges.
+Make the CI workflow (`.github/workflows/ci.yml`) catch more defects, cost less, and enforce merges.
 
 ## Context (observed 2026-10-17)
 
@@ -32,8 +32,10 @@ Make the CI workflow (`.github/workflows/e2e.yml`) catch more defects, cost less
 - [x] C7 `permissions: contents: read` at workflow level.
 - [x] C8 Dependabot for `github-actions`, `npm` (frontend/) and `maven`.
 - [x] C9 Upload surefire reports as an artifact when the backend job fails or is cancelled (timeout).
-- [ ] C10 (optional) Cache Playwright browsers (`~/.cache/ms-playwright`, keyed by version).
-- [ ] C11 (optional) Rename the workflow from `E2E` to `CI`.
+- [-] C10 (optional, dropped 2026-10-18) Cache Playwright browsers. Measured on PR #36: `playwright install
+      --with-deps chromium` takes 22 s, mostly apt system deps that a browser cache does not skip; saving
+      ~10 s of an 80 s job is not worth a cache key to maintain.
+- [x] C11 Rename the workflow from `E2E` to `CI` (file `e2e.yml` -> `ci.yml`).
 
 Keep the four parallel jobs; the structure is fine.
 
@@ -52,6 +54,9 @@ Keep the four parallel jobs; the structure is fine.
 
 - 2026-10-18, commit `2f1376e` (route: inline): C4. Native assess medium, `under_budget` (32 lines
   since `7de3351`), no review due; stays pending in the slice.
+
+- 2026-10-18 (route: inline): C11 workflow renamed to `CI`, file moved to `ci.yml`, references updated
+  (`docs/architecture.md`, `frontend/e2e/README.md`). C10 dropped with the measurement above.
 
 ## Advisory follow-ups from the review (non-blocking)
 
@@ -73,7 +78,7 @@ superseded by a newer push (harmless, 7-day retention).
 ## Next step
 
 Push the branch and open a PR so the workflow proves itself on CI.
-Remaining tasks: C1 (GitHub settings, after the PR), C10, C11.
+Remaining task: C1 (GitHub settings, after the PR).
 C4 can only be proven after merge: `.sonarcloud.properties` is read from `main` only. Check that
 `duplicated_lines` on `main` drops from 464 to near 0. The glob support in `sonar.cpd.exclusions` comes
 from the docs assistant, not a primary page.

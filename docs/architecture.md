@@ -107,7 +107,7 @@ What each piece is for:
 
 - **NubeFacT** — electronic invoicing provider (OSE). Credentials come from environment variables
   (`NUBEFACT_BASE_URL`, `NUBEFACT_API_TOKEN`); locally from `.env.nubefact.local`, never committed.
-- **GitHub Actions** — `.github/workflows/e2e.yml` runs backend tests, frontend lint + tests + build,
+- **GitHub Actions** — `.github/workflows/ci.yml` runs backend tests, frontend lint + tests + build,
   full-stack E2E and the architecture-doc check on every pull request and on every push to `main`. It does
   **not** deploy. A new push to a pull request cancels its stale run; every job has a timeout.
 - **SonarQube Cloud** — automatic analysis (GitHub app) on `main` and every pull request, outside the
