@@ -36,10 +36,10 @@ mvn -f "$REPO_ROOT/pom.xml" -pl application -am install -DskipTests -q
 # Run directly against infrastructure/pom.xml (not `-pl infrastructure -am`
 # from the root): running from infrastructure's own pom lets Maven resolve
 # the `spring-boot` plugin prefix against the version it actually pins
-# (spring-boot.version=3.3.4) instead of either failing prefix resolution
+# (`spring-boot.version` in the root pom.xml) instead of either failing prefix resolution
 # entirely or, with a bare fully-qualified
 # `org.springframework.boot:spring-boot-maven-plugin:run` from the reactor
-# root, silently resolving the latest plugin release (a 4.x milestone)
+# root, silently resolving the latest plugin release (possibly a milestone)
 # against the parent aggregator pom, which has no main class.
 echo "[start-backend] starting Spring Boot app..."
 DB_PORT="$DB_PORT" mvn -f "$REPO_ROOT/infrastructure/pom.xml" spring-boot:run

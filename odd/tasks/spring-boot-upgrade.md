@@ -1,6 +1,6 @@
 # Feature: Spring Boot upgrade path
 
-Status: **in progress**. S1+S2 delivered in PR #54 (merged 2026-10-18); S3 on branch `chore/spring-boot-4`.
+Status: **in progress**. S1+S2 delivered in PR #54. S3 done on branch `chore/spring-boot-4`, not pushed.
 
 ## Objective
 
@@ -19,12 +19,12 @@ The Spring Boot 4.0 migration guide also lists `@MockBean` removal (use `@Mockit
 
 - [x] S1 Dependabot: ignore Spring Boot major updates; keep minor/patch.
 - [x] S2 Upgrade Spring Boot 3.3.4 -> 3.5.16 (latest 3.5.x on Maven Central); backend tests + E2E green.
-- [ ] S3 Migrate to Spring Boot 4.1.1:
+- [x] S3 Migrate to Spring Boot 4.1.1:
   - [x] S3a Build + code compile and `mvn clean test` green, in one commit (a BOM bump alone cannot compile):
         modular starters, Testcontainers 2 artifacts, `@MockBean` -> `@MockitoBean`, test-slice imports,
         `TestRestTemplate`, Jackson 3 (`WholeNumberDeserializer`, `PurchaseItemRequest`, test `ObjectMapper`).
-  - [ ] S3b Runtime proof: full E2E, Flyway startup, actuator health, Hibernate 7 bulk updates on Postgres.
-  - [ ] S3c Docs: regenerate `architecture.md`, hand-written stack lines, stale comments.
+  - [x] S3b Runtime proof: full E2E, Flyway startup, actuator health, Hibernate 7 bulk updates on Postgres.
+  - [x] S3c Docs: regenerate `architecture.md`, hand-written stack lines, stale comments.
 
 ## Checks
 
@@ -50,9 +50,6 @@ The Spring Boot 4.0 migration guide also lists `@MockBean` removal (use `@Mockit
   `mvn clean test` exit 0; `npm run test:e2e` 3 passed; `architecture-doc.mjs --check` up to date.
   (A first run without Docker failed only the 2 Testcontainers tests: environment, not the upgrade.)
 
-## Next step
-
-Push + PR (user). Close #37 once merged; S3 becomes its own feature.
 - S3a (route: delegated writer, 23 files +140/-127): Boot 4.1.1; starters webmvc, flyway, webmvc-test,
   data-jpa-test, resttestclient + restclient (test; `TestRestTemplate` needs `RestTemplateBuilder`);
   Testcontainers 2 artifacts and non-generic `org.testcontainers.postgresql.PostgreSQLContainer`; 22
@@ -63,3 +60,14 @@ Push + PR (user). Close #37 once merged; S3 becomes its own feature.
   application 197/0/0, infrastructure 151/0/0 (incl. Testcontainers tests); no assertions changed.
   Parent spot check: no `@MockBean`/Jackson 2 databind/`api.version` left; `-DskipTests package` exit 0.
   Open for S3b: NubeFacT RestClient JSON under Jackson 3, Hibernate 7 bulk updates and Flyway 12 on Postgres.
+- S3b (route: inline, checks only): `npm run test:e2e` at `ea38b2a`: 3 passed. Verified it ran against a fresh
+  Boot 4.1.1 backend: `start-backend.sh` uses `mvn spring-boot:run` from source with
+  `reuseExistingServer: false`, and nothing was listening on 8080 beforehand; Flyway 12 migrated a clean
+  Postgres; Hibernate 7 and Jackson 3 exercised end to end.
+- S3c (route: inline, mechanical): `architecture.md` regenerated + hand-written stack lines (webmvc, flyway
+  starter, JUnit Jupiter); removed the stale `api.version` CI comment; `start-backend.sh` and pom/test
+  comments no longer name old versions. `bash -n`, YAML parse, `architecture-doc.mjs --check` pass.
+
+## Next step
+
+Push + PR (user); CI must pass the 5 required checks. Then mark the feature done.

@@ -39,7 +39,7 @@ What each piece is for:
   `application` and `infrastructure` (see section 3).
 - **Spring Boot** — framework that runs the web server, connects to the database and wires the pieces
   together. Used **only** in `infrastructure`.
-- **Spring Web** (`spring-boot-starter-web`) — receives HTTP requests in `*Controller` classes.
+- **Spring Web MVC** (`spring-boot-starter-webmvc`) — receives HTTP requests in `*Controller` classes.
 - **Spring Data JPA / Hibernate** (`spring-boot-starter-data-jpa`) — maps Java objects (`*JpaEntity`) to
   database tables, so most SQL is not written by hand. Hibernate only *validates* the schema
   (`ddl-auto: validate`); it never creates tables.
@@ -47,9 +47,9 @@ What each piece is for:
 - **Actuator** — exposes `/actuator/health`.
 - **PostgreSQL** — the database. Connection settings come from environment variables in
   `infrastructure/src/main/resources/application.yml`.
-- **Flyway** — owns the database schema. Each change is a numbered SQL file (`V1__...sql`, `V2__...sql`)
+- **Flyway** (`spring-boot-starter-flyway`) — owns the database schema. Each change is a numbered SQL file (`V1__...sql`, `V2__...sql`)
   applied once, in order. **Never edit an applied migration**: Flyway checksums them and refuses to start.
-- **JUnit 5 + AssertJ** — unit tests. **Testcontainers** — starts a real PostgreSQL in Docker for
+- **JUnit Jupiter + AssertJ** — unit tests. **Testcontainers** — starts a real PostgreSQL in Docker for
   integration and E2E tests. **H2** — in-memory database for some Spring tests.
 
 <!-- BEGIN GENERATED: tech-backend -->
@@ -59,18 +59,21 @@ What each piece is for:
 | Spring Boot (BOM) | root `pom.xml` | — |
 | junit-jupiter | `application` | test |
 | assertj-core | `application` | test |
-| spring-boot-starter-web | `infrastructure` | compile |
+| spring-boot-starter-webmvc | `infrastructure` | compile |
 | spring-boot-starter-data-jpa | `infrastructure` | compile |
 | spring-boot-starter-actuator | `infrastructure` | compile |
 | spring-boot-starter-validation | `infrastructure` | compile |
 | postgresql | `infrastructure` | runtime |
-| flyway-core | `infrastructure` | compile |
+| spring-boot-starter-flyway | `infrastructure` | compile |
 | flyway-database-postgresql | `infrastructure` | compile |
-| spring-boot-starter-test | `infrastructure` | test |
+| spring-boot-starter-webmvc-test | `infrastructure` | test |
+| spring-boot-starter-data-jpa-test | `infrastructure` | test |
+| spring-boot-resttestclient | `infrastructure` | test |
+| spring-boot-restclient | `infrastructure` | test |
 | h2 | `infrastructure` | test |
 | spring-boot-testcontainers | `infrastructure` | test |
-| postgresql | `infrastructure` | test |
-| junit-jupiter | `infrastructure` | test |
+| testcontainers-postgresql | `infrastructure` | test |
+| testcontainers-junit-jupiter | `infrastructure` | test |
 <!-- END GENERATED: tech-backend -->
 
 ### Frontend (`frontend/`, JavaScript)
