@@ -1,0 +1,26 @@
+# Local development database. Matches the defaults in
+# infrastructure/src/main/resources/application.yml, so the backend needs no
+# extra environment variables. Data persists in the named volume.
+name: store-manager
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: store-manager-dev-db
+    environment:
+      POSTGRES_DB: store_manager
+      POSTGRES_USER: store_manager
+      POSTGRES_PASSWORD: store_manager
+    ports:
+      - "5432:5432"
+    volumes:
+      - store-manager-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U store_manager -d store_manager"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  store-manager-dev-data:
+    name: store-manager-dev-data
