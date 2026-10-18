@@ -50,15 +50,19 @@ Keep the four parallel jobs; the structure is fine.
 
 ## Advisory follow-ups from the review (non-blocking)
 
-- (a) The `concurrency` comment says pushes to `main` always run to completion. That is not quite true:
+- [x] (a) The `concurrency` comment says pushes to `main` always run to completion. That is not quite true:
   the group is per ref, so a newer push to `main` can still supersede a *pending* (queued) run.
   Fix the comment, or use `github.run_id` in the group for `main`.
-- (b) `failure()` does not fire when a job hits `timeout-minutes` (that is a cancellation), so the
+- [x] (b) `failure()` does not fire when a job hits `timeout-minutes` (that is a cancellation), so the
   surefire artifact is skipped exactly when a timeout happens. Consider `if: failure() || cancelled()`.
-- (c) The job is still named "Frontend (Vitest unit tests)" but now runs lint and build too. Rename it.
-- (d) The timeouts (15/10/20 min) are not tied to measured runtimes. Check them after the first CI runs.
+- [x] (c) The job is still named "Frontend (Vitest unit tests)" but now runs lint and build too. Rename it.
+- [ ] (d) The timeouts (15/10/20 min) are not tied to measured runtimes. Check them after the first CI runs.
+
+Follow-ups (a)-(c) were fixed on 2026-10-18 (inline, 1 file): main runs use a per-run concurrency
+group, artifact uploads also run on `cancelled()` (backend and Playwright), and the frontend job is
+renamed. YAML parses, `architecture-doc --check` passes. Not yet run on CI.
 
 ## Next step
 
-Decide on follow-ups (a)-(d), then push the branch and open a PR so the workflow proves itself on CI.
+Push the branch and open a PR so the workflow proves itself on CI.
 Remaining tasks: C1 (GitHub settings, after the PR), C4, C10, C11.
