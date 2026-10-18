@@ -7,6 +7,7 @@ import com.storemanager.catalog.domain.Product;
 import com.storemanager.purchasing.domain.Purchase;
 import com.storemanager.purchasing.domain.Supplier;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -15,14 +16,19 @@ import org.junit.jupiter.api.Test;
 
 class RecordPurchaseUseCaseTest {
 
-    private static final LocalDate TODAY = LocalDate.now(RecordPurchaseUseCase.STORE_ZONE);
+    /** 23:30 on 2026-10-08 in Lima, already 2026-10-09 in UTC: "today" must be the store's date. */
+    private static final Clock CLOCK =
+            Clock.fixed(Instant.parse("2026-10-09T04:30:00Z"), RecordPurchaseUseCase.STORE_ZONE);
+
+    private static final LocalDate TODAY = LocalDate.of(2026, 10, 8);
 
     private final InMemorySupplierRepository supplierRepository = new InMemorySupplierRepository();
     private final InMemoryProductRepository productRepository = new InMemoryProductRepository();
     private final InMemoryPurchaseRepository purchaseRepository = new InMemoryPurchaseRepository();
     private final RecordingTransactionRunner transactionRunner = new RecordingTransactionRunner();
     private final RecordPurchaseUseCase useCase =
-            new RecordPurchaseUseCase(purchaseRepository, supplierRepository, productRepository, transactionRunner);
+            new RecordPurchaseUseCase(
+                    purchaseRepository, supplierRepository, productRepository, transactionRunner, CLOCK);
 
     private Supplier supplier;
     private Product phone;
@@ -198,6 +204,28 @@ class RecordPurchaseUseCaseTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("future");
         assertThat(reload(phone).getStockQuantity()).isEqualTo(3);
+    }
+
+    @Test
+    void takesTodayFromTheClockInTheStoreTimeZone() {
+        Purchase purchase =
+                useCase.execute(
+                        supplier.getId(), "F001-123", TODAY,
+                        List.of(new PurchaseLineItemRequest(phone.getId(), 1, BigDecimal.ONE)));
+
+        assertThat(purchase.getPurchaseDate()).isEqualTo(TODAY);
+        assertThat(purchase.getCreatedAt()).isEqualTo(CLOCK.instant());
+    }
+
+    @Test
+    void rejectsTheTimestampDateWhenItIsStillTheDayBeforeInTheStore() {
+        // 2026-10-09 is today in UTC but tomorrow in Lima.
+        assertThatThrownBy(
+                        () -> useCase.execute(
+                                supplier.getId(), "F001-123", LocalDate.of(2026, 10, 9),
+                                List.of(new PurchaseLineItemRequest(phone.getId(), 1, BigDecimal.ONE))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("future");
     }
 
     @Test

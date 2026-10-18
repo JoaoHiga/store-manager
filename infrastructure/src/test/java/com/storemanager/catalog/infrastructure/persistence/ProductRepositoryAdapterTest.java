@@ -217,4 +217,23 @@ class ProductRepositoryAdapterTest {
         assertThat(reloaded.getCostPrice()).isEqualByComparingTo("312.00");
         assertThat(reloaded.getStockQuantity()).isEqualTo(5);
     }
+
+    @Test
+    void savingAStaleProductReturnsThePersistedStockAndCostNotTheStaleOnes() {
+        Product loadedForEdit = productWith("300.00", 3);
+        // A purchase and a sale land between the edit loading the product (stock 3, cost 300) and saving it.
+        adapter.incrementStockAndAverageCost(loadedForEdit.getId(), 2, new BigDecimal("330.00"), Instant.now());
+        adapter.decrementStockIfAvailable(loadedForEdit.getId(), 1, Instant.now());
+
+        Product saved =
+                adapter.save(
+                        loadedForEdit.withUpdatedFields(
+                                "iPhone 12 (usado)", null, categoryId, null, new BigDecimal("320"), Instant.now()));
+
+        // What the PUT response shows: the edited fields plus the stock and cost as they are in the database.
+        assertThat(saved.getName()).isEqualTo("iPhone 12 (usado)");
+        assertThat(saved.getSalePrice()).isEqualByComparingTo("320");
+        assertThat(saved.getStockQuantity()).isEqualTo(4);
+        assertThat(saved.getCostPrice()).isEqualByComparingTo("312.00");
+    }
 }

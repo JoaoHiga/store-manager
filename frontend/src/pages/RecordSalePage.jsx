@@ -102,7 +102,7 @@ export function RecordSalePage() {
       return;
     }
     if (lines.some((line) => !line.productId)) {
-      setFormError('Elegí un producto en cada línea');
+      setFormError('Seleccione un producto en cada línea');
       return;
     }
     if (lines.some((line) => line.quantity === '' || Number(line.quantity) <= 0)) {
@@ -139,7 +139,7 @@ export function RecordSalePage() {
                 value={line.productId}
                 onChange={(event) => updateLine(index, 'productId', event.target.value)}
               >
-                <option value="">Elegí un producto</option>
+                <option value="">Seleccione un producto</option>
                 {availableProducts.map((product) => (
                   <option key={product.id} value={product.id}>
                     {`${product.name} (${product.stockQuantity} en stock)`}

@@ -113,7 +113,7 @@ describe('RecordSalePage', () => {
     await userEvent.type(screen.getByLabelText('Número de documento'), '12345678');
     await userEvent.click(screen.getByRole('button', { name: 'Registrar venta' }));
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Elegí un producto en cada línea');
+    expect(screen.getByRole('alert')).toHaveTextContent('Seleccione un producto en cada línea');
     expect(salesApi.recordSale).not.toHaveBeenCalled();
   });
 

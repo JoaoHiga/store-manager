@@ -4,12 +4,16 @@ import com.storemanager.purchasing.domain.Supplier;
 import com.storemanager.purchasing.domain.port.SupplierRepositoryPort;
 import com.storemanager.purchasing.usecase.DuplicateSupplierRucException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 @Component
 public class SupplierRepositoryAdapter implements SupplierRepositoryPort {
+
+    /** Declared in V9__create_suppliers.sql. */
+    private static final String RUC_CONSTRAINT = "uq_suppliers_ruc";
 
     private final SupplierJpaRepository jpaRepository;
 
@@ -34,9 +38,18 @@ public class SupplierRepositoryAdapter implements SupplierRepositoryPort {
             return toDomain(jpaRepository.save(entity));
         } catch (DataIntegrityViolationException ex) {
             // The use case's findByRuc check-then-act isn't race-safe; the unique constraint on
-            // suppliers.ruc is the real guard. A violation means someone else committed first.
-            throw new DuplicateSupplierRucException(supplier.getRuc());
+            // suppliers.ruc is the real guard. Only that constraint means a duplicate RUC; anything else propagates.
+            if (violates(ex, RUC_CONSTRAINT)) {
+                throw new DuplicateSupplierRucException(supplier.getRuc());
+            }
+            throw ex;
         }
+    }
+
+    /** H2 upper-cases constraint names in its messages and PostgreSQL does not, so compare case-insensitively. */
+    private static boolean violates(DataIntegrityViolationException ex, String constraintName) {
+        String message = ex.getMostSpecificCause().getMessage();
+        return message != null && message.toLowerCase(Locale.ROOT).contains(constraintName);
     }
 
     @Override

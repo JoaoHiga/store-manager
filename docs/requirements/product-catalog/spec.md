@@ -77,7 +77,7 @@ The system MUST list products, MUST support filtering by `categoryId`, and MUST 
 
 ### Requirement: Product Update
 
-The system MUST allow editing an existing product's `name` (at most 160 characters), `description` (at most 1000 characters), `brand` (at most 80 characters), `categoryId`, and `salePrice`. The system MUST NOT allow `sku`, `stockQuantity` or `costPrice` to be modified through this capability: stock is set only as the initial stock at creation and afterwards changes only through stock operations (sales, purchases); `costPrice` is set only at creation and afterwards changes only when a recorded purchase recomputes it as a weighted average of the existing stock and the purchased units (see `purchasing`). A `stockQuantity` or `costPrice` sent on update MUST be ignored, and saving an edit MUST NOT undo a stock or cost change made concurrently (for example, a sale or a purchase recorded while the edit form was open).
+The system MUST allow editing an existing product's `name` (at most 160 characters), `description` (at most 1000 characters), `brand` (at most 80 characters), `categoryId`, and `salePrice`. The system MUST NOT allow `sku`, `stockQuantity` or `costPrice` to be modified through this capability: stock is set only as the initial stock at creation and afterwards changes only through stock operations (sales, purchases); `costPrice` is set only at creation and afterwards changes only when a recorded purchase recomputes it as a weighted average of the existing stock and the purchased units (see `purchasing`). A `stockQuantity` or `costPrice` sent on update MUST be ignored, and saving an edit MUST NOT undo a stock or cost change made concurrently (for example, a sale or a purchase recorded while the edit form was open). The update response MUST show the product's stock and cost price as currently stored, not the values from when the edit was loaded.
 (Previously: `costPrice` had no lower bound, and `name`/`brand`/`description` had no upper bound, on update. `stockQuantity` was editable as an absolute value, which silently undid concurrent sales. `costPrice` was editable too (>= 0 when present), so an edit form loaded before a purchase overwrote the purchase's weighted average.)
 
 #### Scenario: Update a product's sale price
@@ -89,13 +89,13 @@ The system MUST allow editing an existing product's `name` (at most 160 characte
 - GIVEN an active product with `stockQuantity: 3`
 - AND a sale of 1 unit is recorded after the edit form was loaded
 - WHEN the product is updated with `salePrice: 320` (with or without a `stockQuantity` in the request)
-- THEN the product's `stockQuantity` is 2
+- THEN the product's `stockQuantity` is 2, and the update response shows `stockQuantity: 2`
 
 #### Scenario: Updating a product does not change its cost price
 - GIVEN an active product with `costPrice: 300` and `stockQuantity: 3`
 - AND a purchase of 2 units at `unitCost: 330` is recorded after the edit form was loaded (the weighted average becomes `312`)
 - WHEN the product is updated with `salePrice: 320` (with or without a `costPrice` in the request)
-- THEN the product's `costPrice` is 312
+- THEN the product's `costPrice` is 312, and the update response shows `costPrice: 312`
 
 #### Scenario: Reject an update with an over-length name, brand, or description
 - WHEN an existing product is updated with a `name` longer than 160 characters, a `brand` longer than 80 characters, or a `description` longer than 1000 characters
