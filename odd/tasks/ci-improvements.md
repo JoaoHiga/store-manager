@@ -1,0 +1,84 @@
+# Feature: CI pipeline improvements
+
+Status: **in progress** on branch `ci/pipeline-hardening` (resumed 2026-10-18). Not pushed yet.
+
+## Objective
+
+Make the CI workflow (`.github/workflows/ci.yml`) catch more defects, cost less, and enforce merges.
+
+## Context (observed 2026-10-17)
+
+- One workflow, `E2E`, on every `pull_request` and on `push` to `main`. Four parallel jobs: backend
+  (`mvn -B clean test`), frontend unit (`npm test`), architecture doc (generator tests + `--check`),
+  full-stack E2E (Playwright). A full run takes about 1.6 minutes.
+- SonarCloud runs as automatic analysis (GitHub app), outside the workflow, without coverage.
+  Its duplication gate (3% on new code) failed on PRs #32 (5.7%) and #33 (3.2%).
+- Verified on 2026-10-18, once the Sonar project was public: tests contribute 0 duplicated lines; all
+  464 come from domain entities and their `*JpaEntity` twins (7 pairs), a deliberate hexagonal boundary.
+- Branch protection was unavailable (private repo on GitHub Free). The user is making the repo
+  public, which enables it.
+
+## Tasks
+
+- [ ] C1 Branch protection / ruleset on `main` once the repo is public: require the four CI jobs
+      (and SonarCloud, if wanted) before merge.
+- [x] C2 Add `npm run build` to the frontend job (Vite build errors are not caught today).
+- [x] C3 Add `npm run lint` (oxlint is installed but never run).
+- [x] C4 SonarCloud: exclude the `*JpaEntity` classes from duplication (`.sonarcloud.properties`).
+      Moving Sonar into the workflow with coverage stays optional (needs automatic analysis off).
+- [x] C5 `concurrency` with `cancel-in-progress: true`: grouped per ref for pull requests, per run for
+      pushes to `main` (so main runs never supersede each other).
+- [x] C6 `timeout-minutes` on every job.
+- [x] C7 `permissions: contents: read` at workflow level.
+- [x] C8 Dependabot for `github-actions`, `npm` (frontend/) and `maven`.
+- [x] C9 Upload surefire reports as an artifact when the backend job fails or is cancelled (timeout).
+- [-] C10 (optional, dropped 2026-10-18) Cache Playwright browsers. Measured on PR #36: `playwright install
+      --with-deps chromium` takes 22 s, mostly apt system deps that a browser cache does not skip; saving
+      ~10 s of an 80 s job is not worth a cache key to maintain.
+- [x] C11 Rename the workflow from `E2E` to `CI` (file `e2e.yml` -> `ci.yml`).
+
+Keep the four parallel jobs; the structure is fine.
+
+## Checks
+
+- The workflow passes on a PR from the `ci/` branch; a deliberately broken build or lint fails it.
+- `node scripts/architecture-doc.mjs --check` still passes.
+
+## Progress
+
+- 2026-10-18, commit `aff1d9c` (route: inline, 3 files, 48 lines): C2, C3, C5, C6, C7, C8, C9.
+  - Checks: `npm run lint`, `npm run build` (in `frontend/`) and `node scripts/architecture-doc.mjs --check`
+    pass locally. The workflow has not run yet because the branch is not pushed.
+  - Native review: risk was high. The user granted consent, all 4 lenses approved, and the review was
+    acknowledged (lineage `review-fc9f4edff8d95b07`). The reviewed boundary is now `aff1d9c`.
+
+- 2026-10-18, commit `2f1376e` (route: inline): C4. Native assess medium, `under_budget` (32 lines
+  since `7de3351`), no review due; stays pending in the slice.
+
+- 2026-10-18 (route: inline): C11 workflow renamed to `CI`, file moved to `ci.yml`, references updated
+  (`docs/architecture.md`, `frontend/e2e/README.md`). C10 dropped with the measurement above.
+
+## Advisory follow-ups from the review (non-blocking)
+
+- [x] (a) The `concurrency` comment says pushes to `main` always run to completion. That is not quite true:
+  the group is per ref, so a newer push to `main` can still supersede a *pending* (queued) run.
+  Fix the comment, or use `github.run_id` in the group for `main`.
+- [x] (b) `failure()` does not fire when a job hits `timeout-minutes` (that is a cancellation), so the
+  surefire artifact is skipped exactly when a timeout happens. Consider `if: failure() || cancelled()`.
+- [x] (c) The job is still named "Frontend (Vitest unit tests)" but now runs lint and build too. Rename it.
+- [ ] (d) The timeouts (15/10/20 min) are not tied to measured runtimes. Check them after the first CI runs.
+
+Follow-ups (a)-(c) were fixed on 2026-10-18 (inline, 1 file): main runs use a per-run concurrency
+group, artifact uploads also run on `cancelled()` (backend and Playwright), and the frontend job is
+renamed. YAML parses, `architecture-doc --check` passes. Not yet run on CI.
+Commit `7de3351`, native review high risk, granted, 4 lenses approved, acknowledged (lineage
+`review-25857af385eb83d0`). Accepted trade-off: `cancelled()` also uploads partial reports from PR runs
+superseded by a newer push (harmless, 7-day retention).
+
+## Next step
+
+PR #36 holds C2-C9 and C11; its CI passes. The user merges it.
+Remaining task: C1 (GitHub settings, after the PR).
+C4 can only be proven after merge: `.sonarcloud.properties` is read from `main` only. Check that
+`duplicated_lines` on `main` drops from 464 to near 0. The glob support in `sonar.cpd.exclusions` comes
+from the docs assistant, not a primary page.

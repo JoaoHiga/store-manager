@@ -1,14 +1,25 @@
-name: E2E
+name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
 
+# Read-only token: no job needs to write to the repository.
+permissions:
+  contents: read
+
+# A new push to the same PR cancels its stale run. Pushes to main get a per-run group, so a
+# newer push can never cancel or supersede (even while queued) an earlier main run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   backend:
     name: Backend (unit + Phase A Testcontainers E2E)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -22,10 +33,19 @@ jobs:
       # incompatibility (testcontainers/testcontainers-java#11212); this job
       # is what confirms whether that same workaround is still needed here.
       - run: mvn -B clean test
+      # cancelled() covers the job hitting timeout-minutes, which is not a failure().
+      - if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: "**/target/surefire-reports/"
+          retention-days: 7
+          if-no-files-found: ignore
 
   frontend-unit:
-    name: Frontend (Vitest unit tests)
+    name: Frontend (lint + Vitest unit tests + build)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,11 +56,17 @@ jobs:
       - working-directory: frontend
         run: npm ci
       - working-directory: frontend
+        run: npm run lint
+      - working-directory: frontend
         run: npm test
+      # Vite build errors (broken imports, bad syntax in unused paths) are not caught by Vitest.
+      - working-directory: frontend
+        run: npm run build
 
   architecture-doc:
     name: Architecture doc (generator tests + up-to-date check)
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -54,6 +80,7 @@ jobs:
   e2e-full-stack:
     name: Full-stack E2E (Playwright, Phase B)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -79,7 +106,8 @@ jobs:
         env:
           NUBEFACT_API_TOKEN: ${{ secrets.NUBEFACT_API_TOKEN }}
         run: npm run test:e2e
-      - if: failure()
+      # cancelled() covers the job hitting timeout-minutes, which is not a failure().
+      - if: failure() || cancelled()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report

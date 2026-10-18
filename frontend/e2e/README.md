@@ -51,7 +51,7 @@ Specs:
   `start-backend.sh` sources it automatically before starting the backend; nothing else to export
   or configure. For CI, add
   `NUBEFACT_API_TOKEN` as a repository secret instead (`Settings → Secrets and variables → Actions`)
-  — `.github/workflows/e2e.yml` already forwards it.
+  — `.github/workflows/ci.yml` already forwards it.
 
 ## Running
 
