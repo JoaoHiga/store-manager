@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { parseEndpoints, parseImplementedInterfaces, replaceSections } from './architecture-doc.mjs';
+import {
+  parseEndpoints,
+  parseImplementedInterfaces,
+  renderBackendTechnologies,
+  renderFrontendPackages,
+  replaceSections,
+} from './architecture-doc.mjs';
 
 test('replaceSections rewrites only the content between matching markers', () => {
   const doc = [
@@ -66,4 +72,29 @@ test('parseImplementedInterfaces returns the interfaces a class implements', () 
   const source = 'public class SaleRepositoryAdapter implements SaleRepositoryPort, Closeable {';
 
   assert.deepEqual(parseImplementedInterfaces(source), ['SaleRepositoryPort', 'Closeable']);
+});
+
+test('renderFrontendPackages lists packages without their versions', () => {
+  const pkg = { dependencies: { react: '^19.1.0' }, devDependencies: { vitest: '^3.2.4' } };
+  const bumped = { dependencies: { react: '^19.2.0' }, devDependencies: { vitest: '^4.0.0' } };
+
+  const table = renderFrontendPackages(pkg);
+
+  assert.equal(table, ['| Package | Kind |', '|---|---|', '| react | runtime |', '| vitest | dev/test |'].join('\n'));
+  assert.equal(renderFrontendPackages(bumped), table);
+});
+
+test('renderBackendTechnologies keeps the Java version but no dependency versions', () => {
+  const modules = { infrastructure: [{ groupId: 'org.flywaydb', artifactId: 'flyway-core', scope: 'compile' }] };
+
+  assert.equal(
+    renderBackendTechnologies('21', modules),
+    [
+      '| Technology | Module | Scope |',
+      '|---|---|---|',
+      '| Java 21 | root `pom.xml` | — |',
+      '| Spring Boot (BOM) | root `pom.xml` | — |',
+      '| flyway-core | `infrastructure` | compile |',
+    ].join('\n'),
+  );
 });

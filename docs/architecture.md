@@ -53,24 +53,24 @@ What each piece is for:
   integration and E2E tests. **H2** — in-memory database for some Spring tests.
 
 <!-- BEGIN GENERATED: tech-backend -->
-| Technology | Version | Module | Scope |
-|---|---|---|---|
-| Java | 21 | root `pom.xml` | — |
-| Spring Boot (BOM) | 3.3.4 | root `pom.xml` | — |
-| junit-jupiter | managed | `application` | test |
-| assertj-core | managed | `application` | test |
-| spring-boot-starter-web | managed | `infrastructure` | compile |
-| spring-boot-starter-data-jpa | managed | `infrastructure` | compile |
-| spring-boot-starter-actuator | managed | `infrastructure` | compile |
-| spring-boot-starter-validation | managed | `infrastructure` | compile |
-| postgresql | managed | `infrastructure` | runtime |
-| flyway-core | managed | `infrastructure` | compile |
-| flyway-database-postgresql | managed | `infrastructure` | compile |
-| spring-boot-starter-test | managed | `infrastructure` | test |
-| h2 | managed | `infrastructure` | test |
-| spring-boot-testcontainers | managed | `infrastructure` | test |
-| postgresql | managed | `infrastructure` | test |
-| junit-jupiter | managed | `infrastructure` | test |
+| Technology | Module | Scope |
+|---|---|---|
+| Java 21 | root `pom.xml` | — |
+| Spring Boot (BOM) | root `pom.xml` | — |
+| junit-jupiter | `application` | test |
+| assertj-core | `application` | test |
+| spring-boot-starter-web | `infrastructure` | compile |
+| spring-boot-starter-data-jpa | `infrastructure` | compile |
+| spring-boot-starter-actuator | `infrastructure` | compile |
+| spring-boot-starter-validation | `infrastructure` | compile |
+| postgresql | `infrastructure` | runtime |
+| flyway-core | `infrastructure` | compile |
+| flyway-database-postgresql | `infrastructure` | compile |
+| spring-boot-starter-test | `infrastructure` | test |
+| h2 | `infrastructure` | test |
+| spring-boot-testcontainers | `infrastructure` | test |
+| postgresql | `infrastructure` | test |
+| junit-jupiter | `infrastructure` | test |
 <!-- END GENERATED: tech-backend -->
 
 ### Frontend (`frontend/`, JavaScript)
@@ -85,22 +85,22 @@ What each piece is for:
 - **oxlint** — linter (`npm run lint`).
 
 <!-- BEGIN GENERATED: tech-frontend -->
-| Package | Version | Kind |
-|---|---|---|
-| @tanstack/react-query | ^5.102.8 | runtime |
-| react | ^19.2.8 | runtime |
-| react-dom | ^19.2.8 | runtime |
-| @playwright/test | ^1.63.0 | dev/test |
-| @testing-library/jest-dom | ^7.0.1 | dev/test |
-| @testing-library/react | ^16.3.3 | dev/test |
-| @testing-library/user-event | ^14.6.7 | dev/test |
-| @types/react | ^19.2.18 | dev/test |
-| @types/react-dom | ^19.2.7 | dev/test |
-| @vitejs/plugin-react | ^6.1.1 | dev/test |
-| jsdom | ^30.0.1 | dev/test |
-| oxlint | ^1.81.0 | dev/test |
-| vite | ^8.3.0 | dev/test |
-| vitest | ^5.0.0 | dev/test |
+| Package | Kind |
+|---|---|
+| @tanstack/react-query | runtime |
+| react | runtime |
+| react-dom | runtime |
+| @playwright/test | dev/test |
+| @testing-library/jest-dom | dev/test |
+| @testing-library/react | dev/test |
+| @testing-library/user-event | dev/test |
+| @types/react | dev/test |
+| @types/react-dom | dev/test |
+| @vitejs/plugin-react | dev/test |
+| jsdom | dev/test |
+| oxlint | dev/test |
+| vite | dev/test |
+| vitest | dev/test |
 <!-- END GENERATED: tech-frontend -->
 
 ### Outside the code
