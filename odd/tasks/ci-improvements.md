@@ -50,6 +50,9 @@ Keep the four parallel jobs; the structure is fine.
   - Native review: risk was high. The user granted consent, all 4 lenses approved, and the review was
     acknowledged (lineage `review-fc9f4edff8d95b07`). The reviewed boundary is now `aff1d9c`.
 
+- 2026-10-18, commit `2f1376e` (route: inline): C4. Native assess medium, `under_budget` (32 lines
+  since `7de3351`), no review due; stays pending in the slice.
+
 ## Advisory follow-ups from the review (non-blocking)
 
 - [x] (a) The `concurrency` comment says pushes to `main` always run to completion. That is not quite true:
