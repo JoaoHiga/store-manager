@@ -339,6 +339,15 @@ duplicate-invoice rejection.
 
 Keep this list honest: add a risk when you find it, remove it in the change that fixes it.
 
+- **A voucher line can reach NubeFacT with a blank `descripcion`.** Found on 2026-10-18 running the E2E
+  against the NubeFacT sandbox: a sale of a product created without a `description` was rejected with
+  code 21 (`Item - descripcion no puede estar en blanco`, node `cac:Item/cbc:Description`). The adapter only
+  checks the maximum length (`validateLineItems`). The exact source of the blank value (`SaleItem` description
+  snapshot) is not confirmed yet. Pre-existing: unrelated to the Spring Boot 4 upgrade.
+- **E2E reruns against the NubeFacT sandbox collide on voucher numbers.** Each E2E run starts with a fresh
+  database, so correlatives restart at 1, while the sandbox keeps the numbers already issued; NubeFacT answers
+  code 23 (`Este documento ya existe`). The E2E does not assert NubeFacT acceptance, so this stays silent.
+
 - **Manual retry can race the retry job.** `POST /api/sales/{id}/retry-voucher` and `RetryPendingVouchersJob`
   do not coordinate. If both hit the same settled `PENDING` voucher at the same moment, it could be issued
   twice. Unlikely with one cashier, but there is no lock.

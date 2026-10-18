@@ -81,7 +81,15 @@ The Spring Boot 4.0 migration guide also lists `@MockBean` removal (use `@Mockit
 - Delivery strategy: `single-pr` (user, 2026-10-18). The branch is 457 authored lines (~150 of them golden
   JSON fixtures). The migration commit cannot be split (a BOM bump alone does not compile), and the goldens are
   its proof, so splitting them out would merge the migration before its evidence.
-- Pending: one E2E run against the real NubeFacT sandbox (`.env.nubefact.local`, user-provided).
+- Sandbox E2E (2026-10-18, user-provided `.env.nubefact.local`): 3 passed. Playwright drops backend stdout by
+  default, so a second run used `DEBUG=pw:webserver`: credentials loaded, and the backend reached the NubeFacT
+  sandbox, which answered two 400s. Neither is caused by the upgrade (production changes on this branch are only
+  the Jackson imports in `purchasing`; goldens prove identical request JSON):
+  - code 23 `Este documento ya existe`: fresh E2E database restarts correlatives, sandbox kept earlier numbers.
+  - code 21 `descripcion no puede estar en blanco`: pre-existing bug, a product without `description` yields a
+    blank voucher line. Recorded in `docs/architecture.md` known risks; fix as its own feature.
+  - New non-blocking warning: Hibernate Validator HV000271 (`@Valid` on a `List` container is deprecated).
+- Not proven: an accepted (code-free) voucher against the sandbox on this branch.
 
 ## Next step
 
