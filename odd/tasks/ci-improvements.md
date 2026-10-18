@@ -1,6 +1,6 @@
 # Feature: CI pipeline improvements
 
-Status: **in progress** on branch `ci/pipeline-hardening` (resumed 2026-10-18). Not pushed yet.
+Status: **done** (2026-10-18). Delivered in PR #36; C1 configured in GitHub settings.
 
 ## Objective
 
@@ -20,7 +20,7 @@ Make the CI workflow (`.github/workflows/ci.yml`) catch more defects, cost less,
 
 ## Tasks
 
-- [ ] C1 Branch protection / ruleset on `main` once the repo is public: require the four CI jobs
+- [x] C1 Branch protection / ruleset on `main` once the repo is public: require the four CI jobs
       (and SonarCloud, if wanted) before merge.
 - [x] C2 Add `npm run build` to the frontend job (Vite build errors are not caught today).
 - [x] C3 Add `npm run lint` (oxlint is installed but never run).
@@ -75,10 +75,10 @@ Commit `7de3351`, native review high risk, granted, 4 lenses approved, acknowled
 `review-25857af385eb83d0`). Accepted trade-off: `cancelled()` also uploads partial reports from PR runs
 superseded by a newer push (harmless, 7-day retention).
 
-## Next step
+## Closing evidence (2026-10-18)
 
-PR #36 holds C2-C9 and C11; its CI passes. The user merges it.
-Remaining task: C1 (GitHub settings, after the PR).
-C4 can only be proven after merge: `.sonarcloud.properties` is read from `main` only. Check that
-`duplicated_lines` on `main` drops from 464 to near 0. The glob support in `sonar.cpd.exclusions` comes
-from the docs assistant, not a primary page.
+- PR #36 merged; CI (5/5 checks) green on the PR under the renamed `CI` workflow.
+- C1: ruleset on `main` verified via `gh api repos/JoaoHiga/store-manager/rules/branches/main`: deletion and
+  force-push blocked, pull request required (0 approvals), required checks = the four job names plus
+  `SonarCloud Code Analysis`. Renaming a job later breaks its required check: update the ruleset with it.
+- C4: first `main` analysis after the merge reports `duplicated_lines=0` (was 464, 7.2%).
