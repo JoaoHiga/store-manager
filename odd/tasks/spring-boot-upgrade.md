@@ -78,6 +78,9 @@ The Spring Boot 4.0 migration guide also lists `@MockBean` removal (use `@Mockit
   (Jackson 3) 14/14 pass per the surefire report; mutating `moneda` in `factura.json` fails the test (then
   restored). Gap: the test count of the main run was not captured (quiet Maven, worktree removed). Also adds
   the pom comment for the test-scoped `spring-boot-restclient` (review R2-001).
+- Delivery strategy: `single-pr` (user, 2026-10-18). The branch is 457 authored lines (~150 of them golden
+  JSON fixtures). The migration commit cannot be split (a BOM bump alone does not compile), and the goldens are
+  its proof, so splitting them out would merge the migration before its evidence.
 - Pending: one E2E run against the real NubeFacT sandbox (`.env.nubefact.local`, user-provided).
 
 ## Next step
