@@ -1,6 +1,9 @@
 spring:
   application:
     name: store-manager
+  jackson:
+    deserialization:
+      accept-float-as-int: false # a quantity of 1.5 is a 400, never silently truncated to 1
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:store_manager}
     username: ${DB_USER:store_manager}

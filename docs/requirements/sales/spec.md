@@ -8,7 +8,7 @@ Record sales against the product catalog and trigger invoicing, list and view sa
 
 ### Requirement: Record a Sale
 
-The system MUST allow recording a sale with one or more line items, each referencing an existing, active `Product` by id, with `quantity` (> 0) and `unitPrice`/`description` snapshotted from the product at the moment of sale. The system MUST reject a sale referencing a nonexistent or inactive product, and MUST reject a sale whose requested quantity exceeds the product's current stock.
+The system MUST allow recording a sale with one or more line items, each referencing an existing, active `Product` by id, with `quantity` (a whole number > 0; a fractional value such as `1.5` MUST be rejected with a validation error, never truncated) and `unitPrice`/`description` snapshotted from the product at the moment of sale. The system MUST reject a sale referencing a nonexistent or inactive product, and MUST reject a sale whose requested quantity exceeds the product's current stock.
 
 Recording a sale MUST be atomic: the sale, the decrement of each product's stock and the registration of its voucher are persisted together or not at all. The stock check MUST hold under concurrency: two simultaneous sales MUST NOT both consume the same unit. The call to the invoicing provider MUST happen after that data is persisted, never while it is being written (see `invoicing`, Voucher Issuance via OSE).
 

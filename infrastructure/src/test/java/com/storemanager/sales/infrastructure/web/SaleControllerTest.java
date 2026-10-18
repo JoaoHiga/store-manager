@@ -94,6 +94,15 @@ class SaleControllerTest {
     }
 
     @Test
+    void rejectsAFractionalQuantityWith400InsteadOfTruncatingIt() throws Exception {
+        String requestJson =
+                "{\"items\":[{\"productId\":1,\"quantity\":1.5}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\",\"voucherType\":\"BOLETA\"}";
+
+        mockMvc.perform(post("/api/sales").contentType(MediaType.APPLICATION_JSON).content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void rejectsASaleWithMissingVoucherTypeWith400() throws Exception {
         String requestJson =
                 "{\"items\":[{\"productId\":1,\"quantity\":1}],\"buyerDocumentType\":\"DNI\",\"buyerDocumentNumber\":\"12345678\"}";
