@@ -25,11 +25,12 @@ Make the CI workflow (`.github/workflows/e2e.yml`) catch more defects, cost less
 - [x] C3 Add `npm run lint` (oxlint is installed but never run).
 - [ ] C4 SonarCloud: exclude tests from duplication (`sonar.cpd.exclusions`); optionally move Sonar
       into the workflow with JaCoCo and Vitest coverage.
-- [x] C5 `concurrency` with `cancel-in-progress: true` per workflow + ref (stacked PRs re-run often).
+- [x] C5 `concurrency` with `cancel-in-progress: true`: grouped per ref for pull requests, per run for
+      pushes to `main` (so main runs never supersede each other).
 - [x] C6 `timeout-minutes` on every job.
 - [x] C7 `permissions: contents: read` at workflow level.
 - [x] C8 Dependabot for `github-actions`, `npm` (frontend/) and `maven`.
-- [x] C9 Upload surefire reports as an artifact when the backend job fails.
+- [x] C9 Upload surefire reports as an artifact when the backend job fails or is cancelled (timeout).
 - [ ] C10 (optional) Cache Playwright browsers (`~/.cache/ms-playwright`, keyed by version).
 - [ ] C11 (optional) Rename the workflow from `E2E` to `CI`.
 
@@ -61,6 +62,9 @@ Keep the four parallel jobs; the structure is fine.
 Follow-ups (a)-(c) were fixed on 2026-10-18 (inline, 1 file): main runs use a per-run concurrency
 group, artifact uploads also run on `cancelled()` (backend and Playwright), and the frontend job is
 renamed. YAML parses, `architecture-doc --check` passes. Not yet run on CI.
+Commit `7de3351`, native review high risk, granted, 4 lenses approved, acknowledged (lineage
+`review-25857af385eb83d0`). Accepted trade-off: `cancelled()` also uploads partial reports from PR runs
+superseded by a newer push (harmless, 7-day retention).
 
 ## Next step
 
