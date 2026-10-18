@@ -89,7 +89,14 @@ The Spring Boot 4.0 migration guide also lists `@MockBean` removal (use `@Mockit
   - code 21 `descripcion no puede estar en blanco`: pre-existing bug, a product without `description` yields a
     blank voucher line. Recorded in `docs/architecture.md` known risks; fix as its own feature.
   - New non-blocking warning: Hibernate Validator HV000271 (`@Valid` on a `List` container is deprecated).
-- Not proven: an accepted (code-free) voucher against the sandbox on this branch.
+- Accepted voucher on this branch (2026-10-18): a controlled run (throwaway Postgres on 5434,
+  `start-backend.sh` with the sandbox credentials, product WITH a `description`, `voucher_correlativo_sequences`
+  bumped by SQL) issued FACTURA **FFF1-900000**: `voucherStatus=ACCEPTED`, PDF, XML, CDR and hash present.
+  BOLETAs BBB1-206 and BBB1-207 were registered by NubeFacT (2xx, no error) but returned
+  `aceptada_por_sunat=false` with an empty SUNAT description, so they stay `PENDING`; not confirmed whether
+  that is the expected boleta flow (daily summary) or something else. BBB1 enforces a 200-correlative window
+  above the last registered number; FFF1 accepted 900000. Side effect: the sandbox FFF1 series now ends at
+  900000.
 
 ## Next step
 
