@@ -12,15 +12,16 @@ function storeToday() {
 
 /**
  * Records a purchase from a supplier and lists past purchases. Only active suppliers and products
- * are offered, since the backend rejects inactive ones.
+ * are offered, since the backend rejects inactive ones. If either list fails to load, the form is
+ * replaced by the error: its selects could not be filled.
  */
 export function PurchasesPage() {
   const queryClient = useQueryClient();
-  const { data: suppliers = [] } = useQuery({
+  const { data: suppliers = [], error: suppliersError } = useQuery({
     queryKey: ['suppliers', { active: true }],
     queryFn: () => listSuppliers({ active: true }),
   });
-  const { data: products = [] } = useQuery({
+  const { data: products = [], error: productsError } = useQuery({
     queryKey: ['products', { active: true }],
     queryFn: () => listProducts({ active: true }),
   });
@@ -50,14 +51,18 @@ export function PurchasesPage() {
   return (
     <section>
       <h2>Compras</h2>
-      <PurchaseForm
-        key={formKey}
-        suppliers={suppliers}
-        products={products}
-        today={storeToday()}
-        onSubmit={(purchase) => recordMutation.mutate(purchase)}
-        isSubmitting={recordMutation.isPending}
-      />
+      {suppliersError && <p role="alert">Error al cargar proveedores: {suppliersError.message}</p>}
+      {productsError && <p role="alert">Error al cargar productos: {productsError.message}</p>}
+      {!suppliersError && !productsError && (
+        <PurchaseForm
+          key={formKey}
+          suppliers={suppliers}
+          products={products}
+          today={storeToday()}
+          onSubmit={(purchase) => recordMutation.mutate(purchase)}
+          isSubmitting={recordMutation.isPending}
+        />
+      )}
       {mutationError && <p role="alert">{mutationError}</p>}
       {successMessage && <p role="status">{successMessage}</p>}
       {isLoading && <p>Cargando compras...</p>}

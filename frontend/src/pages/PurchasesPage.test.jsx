@@ -54,6 +54,7 @@ describe('PurchasesPage', () => {
     const row = (await screen.findByText('F001-123')).closest('tr');
     expect(within(row).getByText('Distribuidora Lima')).toBeInTheDocument();
     expect(within(row).getByText('2026-10-16')).toBeInTheDocument();
+    expect(within(row).getByText('S/ 660.00')).toBeInTheDocument();
     expect(purchasingApi.listSuppliers).toHaveBeenCalledWith({ active: true });
     expect(catalogApi.listProducts).toHaveBeenCalledWith({ active: true });
     expect(within(screen.getByLabelText('Proveedor')).getByText('Distribuidora Lima')).toBeInTheDocument();
@@ -105,5 +106,21 @@ describe('PurchasesPage', () => {
     renderPage();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Error al cargar compras: Network down');
+  });
+
+  it.each([
+    ['suppliers', () => purchasingApi.listSuppliers, 'Error al cargar proveedores: Network down'],
+    ['products', () => catalogApi.listProducts, 'Error al cargar productos: Network down'],
+  ])('shows an error instead of the form when %s fail to load', async (_, failingApi, message) => {
+    purchasingApi.listSuppliers.mockResolvedValue([supplier]);
+    catalogApi.listProducts.mockResolvedValue([iphone]);
+    purchasingApi.listPurchases.mockResolvedValue([purchase]);
+    failingApi().mockRejectedValue(new Error('Network down'));
+    renderPage();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+    expect(screen.queryByRole('button', { name: 'Registrar compra' })).not.toBeInTheDocument();
+    // The purchase list does not depend on those queries and still renders.
+    expect(await screen.findByText('F001-123')).toBeInTheDocument();
   });
 });

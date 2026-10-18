@@ -102,8 +102,12 @@ test.describe('supplier -> purchase -> stock and cost (Phase B, full stack)', ()
     await expect(purchaseRow.getByRole('cell')).toHaveText([purchaseDate, supplierName, invoiceNumber, '1', 'S/ 650.00']);
 
     // The success handler invalidates products, so the products page shows the raised stock.
-    const productRow = sectionTitled(page, 'Productos').getByRole('row', { name: new RegExp(product.name) });
-    await expect(productRow).toContainText('15');
+    // Asserts the Stock cell itself, located by its header, so a price or SKU containing "15" cannot match.
+    const products = sectionTitled(page, 'Productos');
+    await expect(products.getByRole('columnheader', { name: 'Stock', exact: true })).toBeVisible();
+    const stockColumn = (await products.getByRole('columnheader').allTextContents()).indexOf('Stock');
+    const productRow = products.getByRole('row', { name: new RegExp(product.name) });
+    await expect(productRow.getByRole('cell').nth(stockColumn)).toHaveText('15');
 
     // Cost price is not shown in the UI; the backend is the source of truth for the average.
     const updatedProduct = await fetchProduct(request, product.categoryId, product.id);

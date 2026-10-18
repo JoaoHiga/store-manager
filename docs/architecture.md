@@ -344,7 +344,5 @@ Keep this list honest: add a risk when you find it, remove it in the change that
 - **Backend error messages reach the UI in English.** The API clients show the backend `message` verbatim
   (for example "A purchase with invoice number ... already exists for supplier <id>"), inside a Spanish UI,
   and with internal ids instead of names.
-- **Purchase form hides load failures.** `PurchasesPage.jsx` ignores errors from the supplier and product
-  queries, so a failed load shows empty selects with no message.
 - **Not deployed.** CI tests but does not deploy. CORS only allows `http://localhost:5173`.
 - **Buyer name is a placeholder** on vouchers (`"Cliente <document>"`). See `odd/tasks/buyer-name-lookup.md`.

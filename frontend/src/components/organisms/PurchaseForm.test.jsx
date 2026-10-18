@@ -68,11 +68,38 @@ describe('PurchaseForm', () => {
     expect(screen.queryByRole('button', { name: 'Quitar línea' })).not.toBeInTheDocument();
   });
 
+  it('removes a middle line, keeping the other lines and updating the total', async () => {
+    renderForm({
+      products: [...products, { id: 7, name: 'Mica templada', active: true }],
+    });
+
+    await fillLine(0, { productId: 5, quantity: '2', unitCost: '330' });
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar línea' }));
+    await fillLine(1, { productId: 6, quantity: '10', unitCost: '4.50' });
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar línea' }));
+    await fillLine(2, { productId: 7, quantity: '3', unitCost: '5' });
+    expect(screen.getByText('Total: S/ 720.00')).toBeInTheDocument();
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Quitar línea' })[1]);
+
+    expect(screen.getAllByLabelText('Producto').map((select) => select.value)).toEqual(['5', '7']);
+    expect(screen.getAllByLabelText('Cantidad').map((input) => input.value)).toEqual(['2', '3']);
+    expect(screen.getAllByLabelText('Costo unitario').map((input) => input.value)).toEqual(['330', '5']);
+    expect(screen.getByText('Total: S/ 675.00')).toBeInTheDocument();
+  });
+
   it.each([
     ['a missing supplier', { supplierId: null }, {}, 'Seleccione un proveedor'],
     ['a blank invoice number', { invoiceNumber: '   ' }, {}, 'El número de factura es obligatorio'],
     ['a line without a product', {}, { productId: null }, 'Seleccione un producto en cada línea'],
     ['a zero quantity', {}, { quantity: '0' }, 'La cantidad debe ser un número entero mayor a cero en cada línea'],
+    [
+      'a fractional quantity',
+      {},
+      { quantity: '1.5' },
+      'La cantidad debe ser un número entero mayor a cero en cada línea',
+    ],
+    ['a negative quantity', {}, { quantity: '-2' }, 'La cantidad debe ser un número entero mayor a cero en cada línea'],
     [
       'a unit cost with more than 2 decimals',
       {},
