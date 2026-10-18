@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -111,6 +112,62 @@ class PurchaseControllerTest {
                         + " \"items\": [{\"productId\": 7, \"quantity\": 1, \"unitCost\": 1}]}")
                 .andExpect(status().isBadRequest());
         verify(recordPurchaseUseCase, never()).execute(any(), any(), any(), any());
+    }
+
+    private static String bodyWithItem(String item) {
+        return "{\"supplierId\": 1, \"invoiceNumber\": \"F001-1\", \"purchaseDate\": \"2026-10-08\", \"items\": ["
+                + item + "]}";
+    }
+
+    @Test
+    void rejectsQuantitiesAndUnitCostsBeyondTheirDigitLimitsWith400() throws Exception {
+        // unitCost is @Digits(integer = 10, fraction = 2), like the NUMERIC(12, 2) column.
+        postPurchase(bodyWithItem("{\"productId\": 7, \"quantity\": 1, \"unitCost\": 1.005}"))
+                .andExpect(status().isBadRequest());
+        postPurchase(bodyWithItem("{\"productId\": 7, \"quantity\": 1, \"unitCost\": 12345678901}"))
+                .andExpect(status().isBadRequest());
+        // quantity is a whole number of units that fits an INTEGER column.
+        postPurchase(bodyWithItem("{\"productId\": 7, \"quantity\": 1.5, \"unitCost\": 1}"))
+                .andExpect(status().isBadRequest());
+        postPurchase(bodyWithItem("{\"productId\": 7, \"quantity\": 2147483648, \"unitCost\": 1}"))
+                .andExpect(status().isBadRequest());
+        verify(recordPurchaseUseCase, never()).execute(any(), any(), any(), any());
+    }
+
+    @Test
+    void acceptsAUnitCostAtItsDigitLimits() throws Exception {
+        when(recordPurchaseUseCase.execute(anyLong(), anyString(), any(), anyList())).thenReturn(samplePurchase());
+        postPurchase(bodyWithItem("{\"productId\": 7, \"quantity\": 1, \"unitCost\": 9999999999.99}"))
+                .andExpect(status().isCreated());
+        verify(recordPurchaseUseCase)
+                .execute(1L, "F001-1", DATE, List.of(new PurchaseLineItemRequest(7L, 1, new BigDecimal("9999999999.99"))));
+    }
+
+    @Test
+    void rejectsANullItemWith400() throws Exception {
+        postPurchase(bodyWithItem("null")).andExpect(status().isBadRequest());
+        postPurchase(bodyWithItem("{\"productId\": 7, \"quantity\": 1, \"unitCost\": 1}, null"))
+                .andExpect(status().isBadRequest());
+        verify(recordPurchaseUseCase, never()).execute(any(), any(), any(), any());
+    }
+
+    @Test
+    void checksTheInvoiceNumberLengthAfterTrimmingIt() throws Exception {
+        String thirtyChars = "F001-" + "1".repeat(25);
+        when(recordPurchaseUseCase.execute(anyLong(), anyString(), any(), anyList())).thenReturn(samplePurchase());
+        postPurchase("{\"supplierId\": 1, \"invoiceNumber\": \"  " + thirtyChars + "  \", \"purchaseDate\": \"2026-10-08\","
+                        + " \"items\": [{\"productId\": 7, \"quantity\": 1, \"unitCost\": 1}]}")
+                .andExpect(status().isCreated());
+        verify(recordPurchaseUseCase)
+                .execute(1L, thirtyChars, DATE, List.of(new PurchaseLineItemRequest(7L, 1, new BigDecimal("1"))));
+
+        postPurchase("{\"supplierId\": 1, \"invoiceNumber\": \"" + thirtyChars + "1\", \"purchaseDate\": \"2026-10-08\","
+                        + " \"items\": [{\"productId\": 7, \"quantity\": 1, \"unitCost\": 1}]}")
+                .andExpect(status().isBadRequest());
+        postPurchase("{\"supplierId\": 1, \"invoiceNumber\": \" \\t \", \"purchaseDate\": \"2026-10-08\","
+                        + " \"items\": [{\"productId\": 7, \"quantity\": 1, \"unitCost\": 1}]}")
+                .andExpect(status().isBadRequest());
+        verify(recordPurchaseUseCase, times(1)).execute(any(), any(), any(), any());
     }
 
     @Test

@@ -10,9 +10,13 @@ import com.storemanager.catalog.domain.port.ProductRepositoryPort;
 import com.storemanager.invoicing.domain.VoucherType;
 import com.storemanager.invoicing.domain.port.InvoicingProvider;
 import com.storemanager.invoicing.domain.port.VoucherRequest;
+import com.storemanager.purchasing.domain.Purchase;
+import com.storemanager.purchasing.domain.PurchaseItem;
 import com.storemanager.purchasing.domain.Supplier;
 import com.storemanager.purchasing.domain.port.PurchaseRepositoryPort;
 import com.storemanager.purchasing.domain.port.SupplierRepositoryPort;
+import com.storemanager.purchasing.usecase.DuplicatePurchaseInvoiceException;
+import com.storemanager.purchasing.usecase.DuplicateSupplierRucException;
 import com.storemanager.purchasing.usecase.InactiveProductException;
 import com.storemanager.purchasing.usecase.PurchaseLineItemRequest;
 import com.storemanager.purchasing.usecase.RecordPurchaseUseCase;
@@ -20,6 +24,7 @@ import com.storemanager.sales.usecase.RecordSaleUseCase;
 import com.storemanager.sales.usecase.SaleLineItemRequest;
 import com.storemanager.shared.domain.port.TransactionRunner;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -39,6 +44,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -73,6 +80,7 @@ class PurchaseConcurrencyPostgresTest {
     @Autowired private SupplierRepositoryPort supplierRepository;
     @Autowired private PurchaseRepositoryPort purchaseRepository;
     @Autowired private TransactionRunner transactionRunner;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     /** No network: issuance fails and the voucher stays PENDING, which never affects the sale's stock. */
     @MockBean private InvoicingProvider invoicingProvider;
@@ -117,7 +125,8 @@ class PurchaseConcurrencyPostgresTest {
     void aPurchaseBlockedByAnUncommittedSaleBuildsOnTheSaleInsteadOfOverwritingIt() throws Exception {
         Product phone = product("100.00", 10);
         CountDownLatch saleHoldsTheRow = new CountDownLatch(1);
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+        CountDownLatch commitTheSale = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
             // The sale's stock step (the same conditional decrement RecordSaleUseCase runs), kept uncommitted
             // while the purchase reads the product (stock 10) and then tries to update it.
@@ -128,18 +137,22 @@ class PurchaseConcurrencyPostgresTest {
                                         assertThat(productRepository.decrementStockIfAvailable(phone.getId(), 1, Instant.now()))
                                                 .isTrue();
                                         saleHoldsTheRow.countDown();
-                                        sleep(500);
+                                        await(commitTheSale);
                                         return null;
                                     }));
             assertThat(saleHoldsTheRow.await(10, TimeUnit.SECONDS)).isTrue();
 
-            long startedAt = System.nanoTime();
-            purchase(phone, 2, "130.00"); // blocks on the row lock until the sale commits
-            long blockedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+            Future<?> purchase = executor.submit(() -> purchase(phone, 2, "130.00"));
+            // Proves the two really overlap, without a timing threshold: the purchase is observed waiting on
+            // a row lock (the sale's) and cannot finish while the sale is still open.
+            awaitALockWait();
+            assertThat(purchase.isDone()).isFalse();
+
+            commitTheSale.countDown();
             sale.get(10, TimeUnit.SECONDS);
-            // Proves the two really overlapped: the purchase waited for the sale's transaction to end.
-            assertThat(blockedMillis).isGreaterThanOrEqualTo(250);
+            purchase.get(10, TimeUnit.SECONDS);
         } finally {
+            commitTheSale.countDown();
             executor.shutdownNow();
         }
 
@@ -206,7 +219,8 @@ class PurchaseConcurrencyPostgresTest {
                 };
         RecordPurchaseUseCase useCase =
                 new RecordPurchaseUseCase(
-                        purchaseRepository, supplierRepository, deactivatesTheCaseBeforeItsUpdate, transactionRunner);
+                        purchaseRepository, supplierRepository, deactivatesTheCaseBeforeItsUpdate, transactionRunner,
+                        Clock.systemUTC());
         String invoiceNumber = "F-" + UUID.randomUUID().toString().substring(0, 8);
 
         assertThatThrownBy(
@@ -237,6 +251,63 @@ class PurchaseConcurrencyPostgresTest {
         assertThat(reload(repeating).getCostPrice()).isEqualTo(new BigDecimal("2.01")); // 2.00666...
         assertThat(reload(noCost).getCostPrice()).isEqualTo(new BigDecimal("10.50"));
         assertThat(reload(noCost).getStockQuantity()).isEqualTo(5);
+    }
+
+    @Test
+    void mapsOnlyTheSupplierInvoiceConstraintToADuplicateInvoiceOnPostgresql() {
+        Product phone = product("100.00", 1);
+        String invoiceNumber = "F-" + UUID.randomUUID().toString().substring(0, 8);
+        purchaseRepository.save(purchaseOf(invoiceNumber, phone.getId()));
+
+        assertThatThrownBy(() -> purchaseRepository.save(purchaseOf(invoiceNumber, phone.getId())))
+                .isInstanceOf(DuplicatePurchaseInvoiceException.class);
+        // A missing product breaks fk_purchase_items_product, not the invoice constraint.
+        assertThatThrownBy(
+                        () -> purchaseRepository.save(
+                                purchaseOf("F-" + UUID.randomUUID().toString().substring(0, 8), 999_999_999L)))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .isNotInstanceOf(DuplicatePurchaseInvoiceException.class);
+    }
+
+    @Test
+    void mapsOnlyTheRucConstraintToADuplicateRucOnPostgresql() {
+        // The seeded supplier already holds SUPPLIER_RUC.
+        assertThatThrownBy(
+                        () -> supplierRepository.save(
+                                Supplier.createNew("Otro nombre", SUPPLIER_RUC, null, null, null, Instant.now())))
+                .isInstanceOf(DuplicateSupplierRucException.class);
+        // The name column is VARCHAR(160).
+        assertThatThrownBy(
+                        () -> supplierRepository.save(
+                                Supplier.createNew("a".repeat(161), "20100000009", null, null, null, Instant.now())))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .isNotInstanceOf(DuplicateSupplierRucException.class);
+    }
+
+    private Purchase purchaseOf(String invoiceNumber, Long productId) {
+        LocalDate today = LocalDate.now(RecordPurchaseUseCase.STORE_ZONE);
+        return Purchase.createNew(
+                supplierId, "Distribuidora Lima", invoiceNumber, today,
+                List.of(PurchaseItem.createNew(productId, "iPhone 12", 1, new BigDecimal("100.00"))), today,
+                Instant.now());
+    }
+
+    /** Waits until some backend in the database is blocked on a lock it has not been granted yet. */
+    private void awaitALockWait() {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (jdbcTemplate.queryForObject("SELECT count(*) FROM pg_locks WHERE NOT granted", Long.class) == 0) {
+            assertThat(System.nanoTime()).as("a transaction waiting on a lock").isLessThan(deadline);
+            sleep(20);
+        }
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            assertThat(latch.await(10, TimeUnit.SECONDS)).isTrue();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(ex);
+        }
     }
 
     /** Forwards every call to the real adapter; tests override the one call they need to interfere with. */

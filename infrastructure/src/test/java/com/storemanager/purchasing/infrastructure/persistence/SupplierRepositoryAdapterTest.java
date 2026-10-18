@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 
 /** {@code replace = NONE}: see {@code CategoryRepositoryAdapterTest} for why the test profile's H2 is required. */
@@ -69,5 +70,16 @@ class SupplierRepositoryAdapterTest {
         assertThatThrownBy(
                         () -> adapter().save(Supplier.createNew("Otro nombre", RUC_A, null, null, null, Instant.now())))
                 .isInstanceOf(DuplicateSupplierRucException.class);
+    }
+
+    @Test
+    void doesNotReportOtherIntegrityViolationsAsADuplicateRuc() {
+        // The name column is VARCHAR(160); only uq_suppliers_ruc means a duplicate RUC.
+        String tooLongName = "a".repeat(161);
+
+        assertThatThrownBy(
+                        () -> adapter().save(Supplier.createNew(tooLongName, RUC_A, null, null, null, Instant.now())))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .isNotInstanceOf(DuplicateSupplierRucException.class);
     }
 }

@@ -71,9 +71,9 @@ The system MUST allow deactivating a supplier and reactivating an inactive one. 
 The system MUST allow recording a purchase with a `supplierId`, the supplier's `invoiceNumber`, a `purchaseDate`, and one or more lines, each with a `productId`, a `quantity`, and a `unitCost`.
 
 - The supplier MUST exist (otherwise not found) and MUST be active (otherwise a validation error).
-- `invoiceNumber` is required, non-blank, and at most 30 characters; surrounding whitespace is ignored. The pair (supplier, invoice number) MUST be unique: registering the same supplier invoice twice MUST be rejected as a conflict, including when both are recorded at the same moment. Different suppliers may use the same invoice number.
+- `invoiceNumber` is required; surrounding whitespace is removed first, and what remains MUST be non-blank and at most 30 characters (whitespace alone does not make it too long). The pair (supplier, invoice number) MUST be unique: registering the same supplier invoice twice MUST be rejected as a conflict, including when both are recorded at the same moment. Different suppliers may use the same invoice number.
 - `purchaseDate` is required and MUST NOT be after the current date in the store's time zone (`America/Lima`).
-- Every line's `quantity` MUST be greater than zero and its `unitCost` MUST be zero or greater, with at most 2 decimals. The same product MUST NOT appear on two lines of one purchase.
+- Every line MUST be present (a `null` line is a validation error). Every line's `quantity` MUST be a whole number greater than zero (a fractional quantity MUST be rejected, never truncated) and its `unitCost` MUST be zero or greater, with at most 10 integer digits and 2 decimals. The same product MUST NOT appear on two lines of one purchase.
 - Every referenced product MUST exist (otherwise not found) and MUST be active (otherwise a validation error), the same rule as for sales.
 - A line's `subtotal` is `quantity * unitCost` and the purchase `total` is the sum of the subtotals, both with 2 decimals. The supplier's name and each product's name are snapshotted onto the purchase when it is recorded.
 
@@ -98,7 +98,7 @@ The purchase and every stock and cost update MUST be applied together or not at 
 - THEN the system MUST reject the request with a conflict error, and no stock or cost price changes
 
 #### Scenario: Reject an invalid purchase
-- WHEN a purchase is recorded with a future date, a blank invoice number, no lines, a line with `quantity: 0` or a negative `unitCost`, or the same product on two lines
+- WHEN a purchase is recorded with a future date, a blank invoice number, an invoice number longer than 30 characters after removing surrounding whitespace, no lines, a `null` line, a line with `quantity: 0`, a fractional `quantity` (`1.5`), a negative `unitCost` or one with 3 decimals, or the same product on two lines
 - THEN the system MUST reject the request with a validation error, and no stock or cost price changes
 
 #### Scenario: Reject an inactive or unknown product

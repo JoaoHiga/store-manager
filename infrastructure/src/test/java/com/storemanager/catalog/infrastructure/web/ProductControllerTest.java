@@ -174,14 +174,20 @@ class ProductControllerTest {
 
     @Test
     void ignoresACostPriceSentOnUpdate() throws Exception {
+        Instant now = Instant.now();
+        Product withCost =
+                Product.reconstitute(
+                        1L, "PRD-000001", "iPhone 12", null, 1L, null, new BigDecimal("300.00"), new BigDecimal("320"), 3,
+                        true, now, now);
         when(updateProductUseCase.execute(
                         eq(1L), eq("iPhone 12"), isNull(), eq(1L), isNull(), eq(new BigDecimal("320"))))
-                .thenReturn(sampleProduct(1L, true));
+                .thenReturn(withCost);
         String jsonWithCost = "{\"name\":\"iPhone 12\",\"categoryId\":1,\"salePrice\":320,\"costPrice\":999}";
 
+        // The response carries the stored cost, never the one sent in the body.
         mockMvc.perform(put("/api/products/1").contentType(MediaType.APPLICATION_JSON).content(jsonWithCost))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.costPrice").doesNotExist());
+                .andExpect(jsonPath("$.costPrice").value(300.00));
     }
 
     @Test

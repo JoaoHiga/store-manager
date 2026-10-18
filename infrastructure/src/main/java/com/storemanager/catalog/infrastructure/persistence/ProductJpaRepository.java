@@ -20,6 +20,15 @@ public interface ProductJpaRepository extends JpaRepository<ProductJpaEntity, Lo
     long nextSkuSequenceValue();
 
     /**
+     * Stock and cost read from the row, never from an entity held in the persistence context: those two columns
+     * are not updatable, so an entity saved from stale values keeps the stale values in memory.
+     */
+    @Query(
+            "SELECT new com.storemanager.catalog.infrastructure.persistence.PersistedStockAndCost("
+                    + "p.stockQuantity, p.costPrice) FROM ProductJpaEntity p WHERE p.id = :productId")
+    PersistedStockAndCost findPersistedStockAndCost(@Param("productId") Long productId);
+
+    /**
      * Conditional, single-statement stock decrement: the database checks and subtracts against the current
      * row, so two concurrent sales can never both take the last unit. Returns the number of rows updated,
      * 0 when the stock is insufficient. {@code clearAutomatically} evicts stale cached entities so later

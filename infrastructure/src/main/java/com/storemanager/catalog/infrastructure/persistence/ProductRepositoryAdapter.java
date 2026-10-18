@@ -34,7 +34,14 @@ public class ProductRepositoryAdapter implements ProductRepositoryPort {
                         product.isActive(),
                         product.getCreatedAt(),
                         product.getUpdatedAt());
-        return toDomain(jpaRepository.save(entity));
+        ProductJpaEntity saved = jpaRepository.save(entity);
+        if (product.getId() == null) {
+            return toDomain(saved);
+        }
+        // Stock and cost are not updatable, so the merged entity still carries the caller's values, which may be
+        // stale (a sale or purchase since the product was loaded). Report what the row holds instead.
+        PersistedStockAndCost persisted = jpaRepository.findPersistedStockAndCost(saved.getId());
+        return toDomain(saved, persisted.stockQuantity(), persisted.costPrice());
     }
 
     @Override
@@ -67,6 +74,10 @@ public class ProductRepositoryAdapter implements ProductRepositoryPort {
     }
 
     private Product toDomain(ProductJpaEntity entity) {
+        return toDomain(entity, entity.getStockQuantity(), entity.getCostPrice());
+    }
+
+    private Product toDomain(ProductJpaEntity entity, int stockQuantity, BigDecimal costPrice) {
         return Product.reconstitute(
                 entity.getId(),
                 entity.getSku(),
@@ -74,9 +85,9 @@ public class ProductRepositoryAdapter implements ProductRepositoryPort {
                 entity.getDescription(),
                 entity.getCategoryId(),
                 entity.getBrand(),
-                entity.getCostPrice(),
+                costPrice,
                 entity.getSalePrice(),
-                entity.getStockQuantity(),
+                stockQuantity,
                 entity.isActive(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt());

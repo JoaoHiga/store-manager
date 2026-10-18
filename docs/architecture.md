@@ -154,9 +154,9 @@ The backend is split into four business domains. Each one has the same internal 
 <!-- BEGIN GENERATED: backend-domains -->
 | Domain | Domain model (`domain/`) | Ports (`domain/port/`) | Use cases (`usecase/`) | Infrastructure (files) |
 |---|---|---|---|---|
-| `catalog` | `Category`, `Product` | `CategoryRepositoryPort`, `ProductRepositoryPort` | `CreateCategoryUseCase`, `CreateProductUseCase`, `DeactivateProductUseCase`, `ListCategoriesUseCase`, `ListProductsUseCase`, `ReactivateProductUseCase`, `UpdateProductUseCase` | `config/ (2)`, `persistence/ (6)`, `web/ (8)` |
+| `catalog` | `Category`, `Product` | `CategoryRepositoryPort`, `ProductRepositoryPort` | `CreateCategoryUseCase`, `CreateProductUseCase`, `DeactivateProductUseCase`, `ListCategoriesUseCase`, `ListProductsUseCase`, `ReactivateProductUseCase`, `UpdateProductUseCase` | `config/ (2)`, `persistence/ (7)`, `web/ (8)` |
 | `invoicing` | `Voucher`, `VoucherStatus`, `VoucherType` | `InvoicingProvider`, `VoucherRepositoryPort` | `IssueVoucherForSaleUseCase`, `RetryPendingVoucherUseCase`, `VoidSaleUseCase` | `config/ (1)`, `nubefact/ (9)`, `persistence/ (5)`, `scheduling/ (1)` |
-| `purchasing` | `Purchase`, `PurchaseItem`, `Supplier` | `PurchaseRepositoryPort`, `SupplierRepositoryPort` | `CreateSupplierUseCase`, `DeactivateSupplierUseCase`, `GetPurchaseUseCase`, `ListPurchasesUseCase`, `ListSuppliersUseCase`, `ReactivateSupplierUseCase`, `RecordPurchaseUseCase` | `persistence/ (7)`, `web/ (9)` |
+| `purchasing` | `Purchase`, `PurchaseItem`, `Supplier` | `PurchaseRepositoryPort`, `SupplierRepositoryPort` | `CreateSupplierUseCase`, `DeactivateSupplierUseCase`, `GetPurchaseUseCase`, `ListPurchasesUseCase`, `ListSuppliersUseCase`, `ReactivateSupplierUseCase`, `RecordPurchaseUseCase` | `persistence/ (7)`, `web/ (10)` |
 | `sales` | `BuyerDocumentValidator`, `Sale`, `SaleItem`, `SaleStatus` | `SaleRepositoryPort` | `CancelSaleUseCase`, `GetSaleUseCase`, `ListSalesUseCase`, `RecordSaleUseCase`, `RetrySaleVoucherUseCase` | `persistence/ (4)`, `web/ (7)` |
 | `shared` | `RucValidator` | `TransactionRunner` | — | `transaction/ (1)` |
 <!-- END GENERATED: backend-domains -->
@@ -308,8 +308,13 @@ sale `CANCELLED`.
    case throws and the whole purchase rolls back. `stock_quantity` and `cost_price` are both mapped
    `updatable = false` in `ProductJpaEntity` (a JPQL bulk update ignores that flag), so saving a product
    loaded earlier (an edit, a deactivation) never writes back a stale stock or cost over this update.
+   The saved entity would still carry those stale values in memory, so `ProductRepositoryAdapter.save`
+   re-reads stock and cost from the row for an existing product; the edit response shows the stored ones.
 
-`PurchaseConcurrencyPostgresTest` proves the no-lost-update and rollback behavior on a real PostgreSQL.
+`PurchaseConcurrencyPostgresTest` proves the no-lost-update and rollback behavior, the half-up rounding of
+the average, and the constraint mappings (only `uq_purchases_supplier_invoice` becomes a duplicate invoice,
+only `uq_suppliers_ruc` a duplicate RUC) on a real PostgreSQL. `RecordPurchaseUseCase` takes "now" from an
+injected `java.time.Clock` (system UTC in `UseCaseConfiguration`) and reads "today" in `America/Lima`.
 
 On the frontend, **`PurchasesPage.jsx`** offers only active suppliers and products, submits through
 `recordPurchase()` (`frontend/src/api/purchasingApi.js`), and on success invalidates both the `purchases`

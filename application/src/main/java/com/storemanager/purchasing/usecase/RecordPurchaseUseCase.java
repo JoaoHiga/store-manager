@@ -8,6 +8,7 @@ import com.storemanager.purchasing.domain.Supplier;
 import com.storemanager.purchasing.domain.port.PurchaseRepositoryPort;
 import com.storemanager.purchasing.domain.port.SupplierRepositoryPort;
 import com.storemanager.shared.domain.port.TransactionRunner;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -35,16 +36,20 @@ public class RecordPurchaseUseCase {
     private final SupplierRepositoryPort supplierRepository;
     private final ProductRepositoryPort productRepository;
     private final TransactionRunner transactionRunner;
+    private final Clock clock;
 
+    /** {@code clock} gives "now" and, read in {@link #STORE_ZONE}, the store's "today". */
     public RecordPurchaseUseCase(
             PurchaseRepositoryPort purchaseRepository,
             SupplierRepositoryPort supplierRepository,
             ProductRepositoryPort productRepository,
-            TransactionRunner transactionRunner) {
+            TransactionRunner transactionRunner,
+            Clock clock) {
         this.purchaseRepository = purchaseRepository;
         this.supplierRepository = supplierRepository;
         this.productRepository = productRepository;
         this.transactionRunner = transactionRunner;
+        this.clock = clock;
     }
 
     public Purchase execute(
@@ -64,11 +69,11 @@ public class RecordPurchaseUseCase {
         }
 
         List<PurchaseItem> items = lines == null ? List.of() : lines.stream().map(this::toPurchaseItem).toList();
-        Instant now = Instant.now();
+        Instant now = clock.instant();
         Purchase purchase =
                 Purchase.createNew(
                         supplier.getId(), supplier.getName(), invoiceNumber, purchaseDate, items,
-                        LocalDate.now(STORE_ZONE), now);
+                        LocalDate.ofInstant(now, STORE_ZONE), now);
 
         // Gives a precise error for the common case; the unique constraint behind save() is the race-safe guard.
         if (purchaseRepository.existsBySupplierIdAndInvoiceNumber(supplier.getId(), purchase.getInvoiceNumber())) {

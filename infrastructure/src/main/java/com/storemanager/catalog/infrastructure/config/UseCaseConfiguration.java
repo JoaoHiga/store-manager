@@ -30,6 +30,7 @@ import com.storemanager.sales.usecase.ListSalesUseCase;
 import com.storemanager.sales.usecase.RecordSaleUseCase;
 import com.storemanager.sales.usecase.RetrySaleVoucherUseCase;
 import com.storemanager.shared.domain.port.TransactionRunner;
+import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -157,7 +158,8 @@ public class UseCaseConfiguration {
             ProductRepositoryPort productRepositoryPort,
             TransactionRunner transactionRunner) {
         return new RecordPurchaseUseCase(
-                purchaseRepositoryPort, supplierRepositoryPort, productRepositoryPort, transactionRunner);
+                purchaseRepositoryPort, supplierRepositoryPort, productRepositoryPort, transactionRunner,
+                Clock.systemUTC());
     }
 
     @Bean
