@@ -12,8 +12,9 @@ Make the CI workflow (`.github/workflows/e2e.yml`) catch more defects, cost less
   (`mvn -B clean test`), frontend unit (`npm test`), architecture doc (generator tests + `--check`),
   full-stack E2E (Playwright). A full run takes about 1.6 minutes.
 - SonarCloud runs as automatic analysis (GitHub app), outside the workflow, without coverage.
-  Its duplication gate (3% on new code) failed on PRs #32 (5.7%) and #33 (3.2%), probably because
-  tests are counted (three `InMemoryProductRepository` copies; unverified, the dashboard was private).
+  Its duplication gate (3% on new code) failed on PRs #32 (5.7%) and #33 (3.2%), Verified on
+  2026-10-18 once the Sonar project was public: tests contribute 0 duplicated lines; all 464 come from
+  domain entities and their `*JpaEntity` twins (7 pairs), a deliberate hexagonal boundary.
 - Branch protection was unavailable (private repo on GitHub Free). The user is making the repo
   public, which enables it.
 
@@ -23,8 +24,8 @@ Make the CI workflow (`.github/workflows/e2e.yml`) catch more defects, cost less
       (and SonarCloud, if wanted) before merge.
 - [x] C2 Add `npm run build` to the frontend job (Vite build errors are not caught today).
 - [x] C3 Add `npm run lint` (oxlint is installed but never run).
-- [ ] C4 SonarCloud: exclude tests from duplication (`sonar.cpd.exclusions`); optionally move Sonar
-      into the workflow with JaCoCo and Vitest coverage.
+- [x] C4 SonarCloud: exclude the `*JpaEntity` classes from duplication (`.sonarcloud.properties`).
+      Moving Sonar into the workflow with coverage stays optional (needs automatic analysis off).
 - [x] C5 `concurrency` with `cancel-in-progress: true`: grouped per ref for pull requests, per run for
       pushes to `main` (so main runs never supersede each other).
 - [x] C6 `timeout-minutes` on every job.
@@ -69,4 +70,7 @@ superseded by a newer push (harmless, 7-day retention).
 ## Next step
 
 Push the branch and open a PR so the workflow proves itself on CI.
-Remaining tasks: C1 (GitHub settings, after the PR), C4, C10, C11.
+Remaining tasks: C1 (GitHub settings, after the PR), C10, C11.
+C4 can only be proven after merge: `.sonarcloud.properties` is read from `main` only. Check that
+`duplicated_lines` on `main` drops from 464 to near 0. The glob support in `sonar.cpd.exclusions` comes
+from the docs assistant, not a primary page.

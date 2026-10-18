@@ -110,6 +110,9 @@ What each piece is for:
 - **GitHub Actions** — `.github/workflows/e2e.yml` runs backend tests, frontend lint + tests + build,
   full-stack E2E and the architecture-doc check on every pull request and on every push to `main`. It does
   **not** deploy. A new push to a pull request cancels its stale run; every job has a timeout.
+- **SonarQube Cloud** — automatic analysis (GitHub app) on `main` and every pull request, outside the
+  workflow and without coverage. `.sonarcloud.properties` excludes the `*JpaEntity` classes from
+  copy-paste detection, because they mirror their domain twins by design.
 - **Dependabot** — `.github/dependabot.yml` opens weekly update PRs for GitHub Actions, npm (`frontend/`)
   and Maven.
 - **Docker Compose** — `docker-compose.yml` runs the local development PostgreSQL on port 5432 with the
