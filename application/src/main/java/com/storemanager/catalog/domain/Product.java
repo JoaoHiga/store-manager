@@ -107,15 +107,16 @@ public final class Product {
     }
 
     /**
-     * {@code stockQuantity} is intentionally not a parameter: editing a product never changes its stock, which
-     * only moves through atomic stock operations (sales, purchases) so concurrent changes are never undone.
+     * {@code stockQuantity} and {@code costPrice} are intentionally not parameters: editing a product never
+     * changes its stock or its cost. Stock only moves through atomic stock operations (sales, purchases), and
+     * after creation the cost only changes as the weighted average of purchases, so concurrent changes are
+     * never undone.
      */
     public Product withUpdatedFields(
             String name,
             String description,
             Long categoryId,
             String brand,
-            BigDecimal costPrice,
             BigDecimal salePrice,
             Instant now) {
         return new Product(

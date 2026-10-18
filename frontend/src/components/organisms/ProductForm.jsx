@@ -15,9 +15,10 @@ const emptyForm = {
 /**
  * Handles both create (no `initialValues`) and edit. Deliberately has no
  * `sku` field: sku can never be set/changed from the UI, matching the
- * backend contract (see product-catalog spec.md). Stock is only set as the
- * initial stock on create; editing neither shows nor submits it, since stock
- * only moves through sales and purchases.
+ * backend contract (see product-catalog spec.md). Stock and cost price are
+ * only set on create; editing neither shows nor submits them, since stock
+ * only moves through sales and purchases, and the cost only moves as the
+ * weighted average of purchases.
  */
 export function ProductForm({ categories, initialValues, onSubmit, onCancel }) {
   const isEditing = initialValues !== undefined;
@@ -61,10 +62,17 @@ export function ProductForm({ categories, initialValues, onSubmit, onCancel }) {
       description: values.description || null,
       categoryId: Number(values.categoryId),
       brand: values.brand || null,
-      costPrice: values.costPrice === '' ? null : Number(values.costPrice),
       salePrice: Number(values.salePrice),
     };
-    onSubmit(isEditing ? product : { ...product, stockQuantity: Number(values.stockQuantity) });
+    onSubmit(
+      isEditing
+        ? product
+        : {
+            ...product,
+            costPrice: values.costPrice === '' ? null : Number(values.costPrice),
+            stockQuantity: Number(values.stockQuantity),
+          },
+    );
   }
 
   return (
@@ -88,14 +96,16 @@ export function ProductForm({ categories, initialValues, onSubmit, onCancel }) {
         </select>
       </div>
       <FormField id="brand" label="Marca" value={values.brand} onChange={handleChange('brand')} />
-      <FormField
-        id="costPrice"
-        label="Precio de costo"
-        type="number"
-        step="0.01"
-        value={values.costPrice}
-        onChange={handleChange('costPrice')}
-      />
+      {!isEditing && (
+        <FormField
+          id="costPrice"
+          label="Precio de costo"
+          type="number"
+          step="0.01"
+          value={values.costPrice}
+          onChange={handleChange('costPrice')}
+        />
+      )}
       <FormField
         id="salePrice"
         label="Precio de venta"

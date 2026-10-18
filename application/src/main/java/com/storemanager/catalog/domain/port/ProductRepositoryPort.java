@@ -1,6 +1,7 @@
 package com.storemanager.catalog.domain.port;
 
 import com.storemanager.catalog.domain.Product;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -27,4 +28,15 @@ public interface ProductRepositoryPort {
      * insufficient at the moment of the update, e.g. because a concurrent sale took it first.
      */
     boolean decrementStockIfAvailable(Long productId, int quantity, Instant now);
+
+    /**
+     * Atomically adds {@code quantity} to an active product's stock and recomputes its cost price as the
+     * weighted average {@code (stock * costPrice + quantity * unitCost) / (stock + quantity)}, rounded half-up
+     * to 2 decimals; when the product has no cost price yet or no stock, the new cost price is
+     * {@code unitCost}. Stock and cost are computed from the current stored values in a single conditional
+     * update (never a read-modify-write of a previously loaded {@link Product}), so a concurrent sale or
+     * purchase is never lost. Returns {@code false}, changing nothing, when the product is missing or
+     * inactive at the moment of the update.
+     */
+    boolean incrementStockAndAverageCost(Long productId, int quantity, BigDecimal unitCost, Instant now);
 }

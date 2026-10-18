@@ -31,7 +31,7 @@ class UpdateProductUseCaseTest {
                 createProductUseCase.execute("iPhone 12", null, category.getId(), null, null, new BigDecimal("350"), 3);
 
         Product updated =
-                useCase.execute(created.getId(), "iPhone 12", null, category.getId(), null, null, new BigDecimal("320"));
+                useCase.execute(created.getId(), "iPhone 12", null, category.getId(), null, new BigDecimal("320"));
 
         assertThat(updated.getId()).isEqualTo(created.getId());
         assertThat(updated.getSku()).isEqualTo(created.getSku());
@@ -45,9 +45,22 @@ class UpdateProductUseCaseTest {
         productRepository.decrementStockIfAvailable(created.getId(), 1, Instant.now());
 
         Product updated =
-                useCase.execute(created.getId(), "iPhone 12", null, category.getId(), null, null, new BigDecimal("320"));
+                useCase.execute(created.getId(), "iPhone 12", null, category.getId(), null, new BigDecimal("320"));
 
         assertThat(updated.getStockQuantity()).isEqualTo(2);
+    }
+
+    @Test
+    void keepsTheCurrentCostPriceWhenUpdating() {
+        Product created =
+                createProductUseCase.execute(
+                        "iPhone 12", null, category.getId(), null, new BigDecimal("300.00"), new BigDecimal("350"), 3);
+        productRepository.incrementStockAndAverageCost(created.getId(), 2, new BigDecimal("330.00"), Instant.now());
+
+        Product updated =
+                useCase.execute(created.getId(), "iPhone 12", null, category.getId(), null, new BigDecimal("320"));
+
+        assertThat(updated.getCostPrice()).isEqualByComparingTo("312.00");
     }
 
     @Test
@@ -55,7 +68,7 @@ class UpdateProductUseCaseTest {
         assertThatThrownBy(
                         () ->
                                 useCase.execute(
-                                        999L, "iPhone 12", null, category.getId(), null, null, new BigDecimal("320")))
+                                        999L, "iPhone 12", null, category.getId(), null, new BigDecimal("320")))
                 .isInstanceOf(ProductNotFoundException.class);
     }
 
@@ -67,7 +80,7 @@ class UpdateProductUseCaseTest {
         assertThatThrownBy(
                         () ->
                                 useCase.execute(
-                                        created.getId(), "iPhone 12", null, 999L, null, null, new BigDecimal("320")))
+                                        created.getId(), "iPhone 12", null, 999L, null, new BigDecimal("320")))
                 .isInstanceOf(CategoryNotFoundException.class);
     }
 }

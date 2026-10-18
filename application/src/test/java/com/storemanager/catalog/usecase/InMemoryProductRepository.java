@@ -2,6 +2,8 @@ package com.storemanager.catalog.usecase;
 
 import com.storemanager.catalog.domain.Product;
 import com.storemanager.catalog.domain.port.ProductRepositoryPort;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,6 +72,29 @@ class InMemoryProductRepository implements ProductRepositoryPort {
                         product.getId(), product.getSku(), product.getName(), product.getDescription(),
                         product.getCategoryId(), product.getBrand(), product.getCostPrice(), product.getSalePrice(),
                         product.getStockQuantity() - quantity, product.isActive(), product.getCreatedAt(), now));
+        return true;
+    }
+
+    @Override
+    public boolean incrementStockAndAverageCost(Long productId, int quantity, BigDecimal unitCost, Instant now) {
+        Optional<Product> current = findById(productId);
+        if (current.isEmpty() || !current.get().isActive()) {
+            return false;
+        }
+        Product product = current.get();
+        int stock = product.getStockQuantity();
+        BigDecimal oldCost = product.getCostPrice();
+        BigDecimal newCost =
+                oldCost == null || stock == 0
+                        ? unitCost
+                        : oldCost.multiply(BigDecimal.valueOf(stock))
+                                .add(unitCost.multiply(BigDecimal.valueOf(quantity)))
+                                .divide(BigDecimal.valueOf(stock + quantity), 2, RoundingMode.HALF_UP);
+        save(
+                Product.reconstitute(
+                        product.getId(), product.getSku(), product.getName(), product.getDescription(),
+                        product.getCategoryId(), product.getBrand(), newCost, product.getSalePrice(),
+                        stock + quantity, product.isActive(), product.getCreatedAt(), now));
         return true;
     }
 }

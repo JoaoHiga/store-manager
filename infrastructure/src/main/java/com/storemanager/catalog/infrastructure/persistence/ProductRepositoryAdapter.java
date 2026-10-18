@@ -2,6 +2,7 @@ package com.storemanager.catalog.infrastructure.persistence;
 
 import com.storemanager.catalog.domain.Product;
 import com.storemanager.catalog.domain.port.ProductRepositoryPort;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +55,11 @@ public class ProductRepositoryAdapter implements ProductRepositoryPort {
     @Override
     public boolean decrementStockIfAvailable(Long productId, int quantity, Instant now) {
         return jpaRepository.decrementStockIfAvailable(productId, quantity, now) == 1;
+    }
+
+    @Override
+    public boolean incrementStockAndAverageCost(Long productId, int quantity, BigDecimal unitCost, Instant now) {
+        return jpaRepository.incrementStockAndAverageCost(productId, quantity, unitCost, now) == 1;
     }
 
     private String generateSku() {

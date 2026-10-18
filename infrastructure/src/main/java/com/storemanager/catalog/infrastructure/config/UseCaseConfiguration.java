@@ -14,11 +14,15 @@ import com.storemanager.invoicing.domain.port.VoucherRepositoryPort;
 import com.storemanager.invoicing.usecase.IssueVoucherForSaleUseCase;
 import com.storemanager.invoicing.usecase.RetryPendingVoucherUseCase;
 import com.storemanager.invoicing.usecase.VoidSaleUseCase;
+import com.storemanager.purchasing.domain.port.PurchaseRepositoryPort;
 import com.storemanager.purchasing.domain.port.SupplierRepositoryPort;
 import com.storemanager.purchasing.usecase.CreateSupplierUseCase;
 import com.storemanager.purchasing.usecase.DeactivateSupplierUseCase;
+import com.storemanager.purchasing.usecase.GetPurchaseUseCase;
+import com.storemanager.purchasing.usecase.ListPurchasesUseCase;
 import com.storemanager.purchasing.usecase.ListSuppliersUseCase;
 import com.storemanager.purchasing.usecase.ReactivateSupplierUseCase;
+import com.storemanager.purchasing.usecase.RecordPurchaseUseCase;
 import com.storemanager.sales.domain.port.SaleRepositoryPort;
 import com.storemanager.sales.usecase.CancelSaleUseCase;
 import com.storemanager.sales.usecase.GetSaleUseCase;
@@ -144,5 +148,25 @@ public class UseCaseConfiguration {
     @Bean
     public ReactivateSupplierUseCase reactivateSupplierUseCase(SupplierRepositoryPort supplierRepositoryPort) {
         return new ReactivateSupplierUseCase(supplierRepositoryPort);
+    }
+
+    @Bean
+    public RecordPurchaseUseCase recordPurchaseUseCase(
+            PurchaseRepositoryPort purchaseRepositoryPort,
+            SupplierRepositoryPort supplierRepositoryPort,
+            ProductRepositoryPort productRepositoryPort,
+            TransactionRunner transactionRunner) {
+        return new RecordPurchaseUseCase(
+                purchaseRepositoryPort, supplierRepositoryPort, productRepositoryPort, transactionRunner);
+    }
+
+    @Bean
+    public ListPurchasesUseCase listPurchasesUseCase(PurchaseRepositoryPort purchaseRepositoryPort) {
+        return new ListPurchasesUseCase(purchaseRepositoryPort);
+    }
+
+    @Bean
+    public GetPurchaseUseCase getPurchaseUseCase(PurchaseRepositoryPort purchaseRepositoryPort) {
+        return new GetPurchaseUseCase(purchaseRepositoryPort);
     }
 }

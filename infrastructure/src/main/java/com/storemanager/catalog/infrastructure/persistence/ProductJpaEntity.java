@@ -32,7 +32,13 @@ public class ProductJpaEntity {
     @Column(length = 80)
     private String brand;
 
-    @Column(name = "cost_price", precision = 12, scale = 2)
+    /**
+     * Written only on INSERT (the cost entered at creation). After that, the cost changes exclusively as the
+     * weighted average computed by the JPQL bulk update {@link ProductJpaRepository#incrementStockAndAverageCost}
+     * (bulk updates ignore {@code updatable}); saving an entity loaded earlier (product edit, deactivate,
+     * activate) must never write back a stale cost over a purchase.
+     */
+    @Column(name = "cost_price", precision = 12, scale = 2, updatable = false)
     private BigDecimal costPrice;
 
     @Column(name = "sale_price", nullable = false, precision = 12, scale = 2)
