@@ -13,7 +13,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import static org.mockito.ArgumentMatchers.any;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storemanager.invoicing.domain.Voucher;
 import com.storemanager.invoicing.domain.VoucherStatus;
 import com.storemanager.invoicing.domain.VoucherType;
@@ -39,10 +38,11 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 @WebMvcTest(SaleController.class)
 class SaleControllerTest {
@@ -50,12 +50,12 @@ class SaleControllerTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
 
-    @MockBean private RecordSaleUseCase recordSaleUseCase;
-    @MockBean private ListSalesUseCase listSalesUseCase;
-    @MockBean private GetSaleUseCase getSaleUseCase;
-    @MockBean private RetrySaleVoucherUseCase retrySaleVoucherUseCase;
-    @MockBean private CancelSaleUseCase cancelSaleUseCase;
-    @MockBean private VoucherRepositoryPort voucherRepositoryPort;
+    @MockitoBean private RecordSaleUseCase recordSaleUseCase;
+    @MockitoBean private ListSalesUseCase listSalesUseCase;
+    @MockitoBean private GetSaleUseCase getSaleUseCase;
+    @MockitoBean private RetrySaleVoucherUseCase retrySaleVoucherUseCase;
+    @MockitoBean private CancelSaleUseCase cancelSaleUseCase;
+    @MockitoBean private VoucherRepositoryPort voucherRepositoryPort;
 
     private static Voucher sampleVoucher(long id, Long saleId, VoucherStatus status) {
         return Voucher.reconstitute(

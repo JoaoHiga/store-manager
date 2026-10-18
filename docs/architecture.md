@@ -39,7 +39,7 @@ What each piece is for:
   `application` and `infrastructure` (see section 3).
 - **Spring Boot** — framework that runs the web server, connects to the database and wires the pieces
   together. Used **only** in `infrastructure`.
-- **Spring Web** (`spring-boot-starter-web`) — receives HTTP requests in `*Controller` classes.
+- **Spring Web MVC** (`spring-boot-starter-webmvc`) — receives HTTP requests in `*Controller` classes.
 - **Spring Data JPA / Hibernate** (`spring-boot-starter-data-jpa`) — maps Java objects (`*JpaEntity`) to
   database tables, so most SQL is not written by hand. Hibernate only *validates* the schema
   (`ddl-auto: validate`); it never creates tables.
@@ -47,9 +47,9 @@ What each piece is for:
 - **Actuator** — exposes `/actuator/health`.
 - **PostgreSQL** — the database. Connection settings come from environment variables in
   `infrastructure/src/main/resources/application.yml`.
-- **Flyway** — owns the database schema. Each change is a numbered SQL file (`V1__...sql`, `V2__...sql`)
+- **Flyway** (`spring-boot-starter-flyway`) — owns the database schema. Each change is a numbered SQL file (`V1__...sql`, `V2__...sql`)
   applied once, in order. **Never edit an applied migration**: Flyway checksums them and refuses to start.
-- **JUnit 5 + AssertJ** — unit tests. **Testcontainers** — starts a real PostgreSQL in Docker for
+- **JUnit Jupiter + AssertJ** — unit tests. **Testcontainers** — starts a real PostgreSQL in Docker for
   integration and E2E tests. **H2** — in-memory database for some Spring tests.
 
 <!-- BEGIN GENERATED: tech-backend -->
@@ -59,18 +59,21 @@ What each piece is for:
 | Spring Boot (BOM) | root `pom.xml` | — |
 | junit-jupiter | `application` | test |
 | assertj-core | `application` | test |
-| spring-boot-starter-web | `infrastructure` | compile |
+| spring-boot-starter-webmvc | `infrastructure` | compile |
 | spring-boot-starter-data-jpa | `infrastructure` | compile |
 | spring-boot-starter-actuator | `infrastructure` | compile |
 | spring-boot-starter-validation | `infrastructure` | compile |
 | postgresql | `infrastructure` | runtime |
-| flyway-core | `infrastructure` | compile |
+| spring-boot-starter-flyway | `infrastructure` | compile |
 | flyway-database-postgresql | `infrastructure` | compile |
-| spring-boot-starter-test | `infrastructure` | test |
+| spring-boot-starter-webmvc-test | `infrastructure` | test |
+| spring-boot-starter-data-jpa-test | `infrastructure` | test |
+| spring-boot-resttestclient | `infrastructure` | test |
+| spring-boot-restclient | `infrastructure` | test |
 | h2 | `infrastructure` | test |
 | spring-boot-testcontainers | `infrastructure` | test |
-| postgresql | `infrastructure` | test |
-| junit-jupiter | `infrastructure` | test |
+| testcontainers-postgresql | `infrastructure` | test |
+| testcontainers-junit-jupiter | `infrastructure` | test |
 <!-- END GENERATED: tech-backend -->
 
 ### Frontend (`frontend/`, JavaScript)
@@ -335,6 +338,15 @@ duplicate-invoice rejection.
 ## 6. Known risks and gaps
 
 Keep this list honest: add a risk when you find it, remove it in the change that fixes it.
+
+- **A voucher line can reach NubeFacT with a blank `descripcion`.** Found on 2026-10-18 running the E2E
+  against the NubeFacT sandbox: a sale of a product created without a `description` was rejected with
+  code 21 (`Item - descripcion no puede estar en blanco`, node `cac:Item/cbc:Description`). The adapter only
+  checks the maximum length (`validateLineItems`). The exact source of the blank value (`SaleItem` description
+  snapshot) is not confirmed yet. Pre-existing: unrelated to the Spring Boot 4 upgrade.
+- **E2E reruns against the NubeFacT sandbox collide on voucher numbers.** Each E2E run starts with a fresh
+  database, so correlatives restart at 1, while the sandbox keeps the numbers already issued; NubeFacT answers
+  code 23 (`Este documento ya existe`). The E2E does not assert NubeFacT acceptance, so this stays silent.
 
 - **Manual retry can race the retry job.** `POST /api/sales/{id}/retry-voucher` and `RetryPendingVouchersJob`
   do not coordinate. If both hit the same settled `PENDING` voucher at the same moment, it could be issued

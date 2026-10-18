@@ -15,13 +15,20 @@ import com.storemanager.invoicing.domain.port.IssuedVoucher;
 import com.storemanager.invoicing.domain.port.VoucherLineItem;
 import com.storemanager.invoicing.domain.port.VoucherRequest;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -138,6 +145,7 @@ class NubeFactInvoicingAdapterTest {
                                         }
                                         """,
                                         false))
+                .andExpect(content().json(golden("boleta"), JsonCompareMode.STRICT))
                 .andRespond(withSuccess(ACCEPTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
         adapter.issueBoleta(boletaRequest());
@@ -166,6 +174,7 @@ class NubeFactInvoicingAdapterTest {
                                         }
                                         """,
                                         false))
+                .andExpect(content().json(golden("boleta-without-buyer-document"), JsonCompareMode.STRICT))
                 .andRespond(withSuccess(ACCEPTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
         IssuedVoucher issued = adapter.issueBoleta(request);
@@ -207,6 +216,7 @@ class NubeFactInvoicingAdapterTest {
                                         }
                                         """,
                                         false))
+                .andExpect(content().json(golden("factura"), JsonCompareMode.STRICT))
                 .andRespond(withSuccess(ACCEPTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
         adapter.issueFactura(request);
@@ -310,6 +320,7 @@ class NubeFactInvoicingAdapterTest {
                                         }
                                         """,
                                         false))
+                .andExpect(content().json(golden("credit-note"), JsonCompareMode.STRICT))
                 .andRespond(withSuccess(ACCEPTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
         IssuedVoucher issued = adapter.issueCreditNote(request);
@@ -322,6 +333,7 @@ class NubeFactInvoicingAdapterTest {
     void checkStatusReturnsAcceptedWhenSunatAccepted() {
         server.expect(requestTo(BASE_URL))
                 .andExpect(content().json("{\"operacion\": \"consultar_comprobante\"}", false))
+                .andExpect(content().json(golden("status"), JsonCompareMode.STRICT))
                 .andRespond(withSuccess(ACCEPTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
         VoucherStatus status = adapter.checkStatus("BBB1-1");
@@ -344,6 +356,7 @@ class NubeFactInvoicingAdapterTest {
         server.expect(requestTo(BASE_URL))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(content().json("{\"operacion\": \"generar_anulacion\"}", false))
+                .andExpect(content().json(golden("void"), JsonCompareMode.STRICT))
                 .andRespond(withSuccess(ACCEPTED_RESPONSE_JSON, MediaType.APPLICATION_JSON));
 
         IssuedVoucher issued = adapter.voidVoucher("BBB1-1", "Anulacion por error de digitacion");
@@ -355,6 +368,25 @@ class NubeFactInvoicingAdapterTest {
     void voidVoucherRejectsMalformedReference() {
         assertThatThrownBy(() -> adapter.voidVoucher("not-a-reference-format", "reason"))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
+     * Loads a golden request body from {@code src/test/resources/nubefact/}. The goldens were
+     * captured from these same scenarios on the Spring Boot 3.5 / Jackson 2 code, so a STRICT match
+     * proves the serializer upgrade did not change what NubeFacT receives. The adapter stamps
+     * {@code fecha_de_emision} with today's UTC date (no injectable clock), so the golden holds a
+     * placeholder filled the same way here.
+     */
+    private static String golden(String name) {
+        try (InputStream in = NubeFactInvoicingAdapterTest.class.getResourceAsStream("/nubefact/" + name + ".json")) {
+            if (in == null) {
+                throw new IllegalArgumentException("Missing golden /nubefact/" + name + ".json");
+            }
+            String fechaDeEmision = DateTimeFormatter.ofPattern("dd-MM-yyyy").format(LocalDate.now(ZoneOffset.UTC));
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8).replace("${fecha_de_emision}", fechaDeEmision);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private VoucherRequest boletaRequest() {

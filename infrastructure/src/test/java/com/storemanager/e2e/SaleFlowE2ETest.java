@@ -13,16 +13,17 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * Phase A of `automated-e2e-testing`: drives {@code SaleController} through a real Spring context
@@ -38,26 +39,16 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @Testcontainers
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
+@AutoConfigureTestRestTemplate
 class SaleFlowE2ETest {
-
-    static {
-        // Local Docker Engine 29.x + testcontainers-java 1.19.8 (Spring Boot 3.3.4's managed
-        // version) hit a known docker-java client incompatibility: the auto-negotiated API
-        // version request gets an empty/malformed response from the daemon (400), which
-        // Testcontainers surfaces as "Could not find a valid Docker environment" even though
-        // Docker itself is running fine. Pinning the API version explicitly is the confirmed
-        // upstream workaround (testcontainers/testcontainers-java#11212) until the project
-        // upgrades past its 1.x line, which will not receive a fix.
-        System.setProperty("api.version", "1.44");
-    }
 
     @Container
     @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine");
 
     @Autowired private TestRestTemplate restTemplate;
 
-    @MockBean private InvoicingProvider invoicingProvider;
+    @MockitoBean private InvoicingProvider invoicingProvider;
 
     private Long productId;
 

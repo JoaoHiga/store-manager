@@ -33,9 +33,9 @@ import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(PurchaseController.class)
@@ -45,9 +45,9 @@ class PurchaseControllerTest {
 
     @Autowired private MockMvc mockMvc;
 
-    @MockBean private RecordPurchaseUseCase recordPurchaseUseCase;
-    @MockBean private ListPurchasesUseCase listPurchasesUseCase;
-    @MockBean private GetPurchaseUseCase getPurchaseUseCase;
+    @MockitoBean private RecordPurchaseUseCase recordPurchaseUseCase;
+    @MockitoBean private ListPurchasesUseCase listPurchasesUseCase;
+    @MockitoBean private GetPurchaseUseCase getPurchaseUseCase;
 
     private static Purchase samplePurchase() {
         return Purchase.reconstitute(

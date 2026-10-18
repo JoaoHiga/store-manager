@@ -28,10 +28,7 @@ jobs:
           java-version: "21"
           cache: maven
       # ubuntu-latest ships Docker preinstalled — no extra setup needed for
-      # Testcontainers (research.md). SaleFlowE2ETest pins the docker-java
-      # api.version workaround itself for the known Docker-29.x
-      # incompatibility (testcontainers/testcontainers-java#11212); this job
-      # is what confirms whether that same workaround is still needed here.
+      # Testcontainers (research.md).
       - run: mvn -B clean test
       # cancelled() covers the job hitting timeout-minutes, which is not a failure().
       - if: failure() || cancelled()

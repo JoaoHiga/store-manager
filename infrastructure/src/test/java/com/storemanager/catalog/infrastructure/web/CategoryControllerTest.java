@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.storemanager.catalog.domain.Category;
 import com.storemanager.catalog.usecase.CreateCategoryUseCase;
 import com.storemanager.catalog.usecase.DuplicateCategoryNameException;
@@ -18,10 +17,11 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 @WebMvcTest(CategoryController.class)
 class CategoryControllerTest {
@@ -29,8 +29,8 @@ class CategoryControllerTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
 
-    @MockBean private CreateCategoryUseCase createCategoryUseCase;
-    @MockBean private ListCategoriesUseCase listCategoriesUseCase;
+    @MockitoBean private CreateCategoryUseCase createCategoryUseCase;
+    @MockitoBean private ListCategoriesUseCase listCategoriesUseCase;
 
     @Test
     void createsACategoryAndReturns201() throws Exception {
