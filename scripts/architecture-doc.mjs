@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Regenerates the factual sections of docs/architecture.md from the code itself: technology versions,
+// Regenerates the factual sections of docs/architecture.md from the code itself: technologies in use,
 // backend domains, ports and their adapters, REST endpoints, Flyway migrations and frontend structure.
 // Only the content between `<!-- BEGIN GENERATED: <name> -->` / `<!-- END GENERATED: <name> -->` markers is
 // rewritten; everything else in the document is hand-written and left untouched.
@@ -57,6 +57,27 @@ export function parseEndpoints(source) {
 export function parseImplementedInterfaces(source) {
   const list = source.match(/\bimplements\s+([\w\s,<>]+?)\s*\{/)?.[1];
   return list ? list.split(',').map((name) => name.replace(/<.*$/, '').trim()).filter(Boolean) : [];
+}
+
+// Dependency versions are deliberately left out: Dependabot bumps them, and each bump would otherwise make
+// the document stale. Only the Java version (not Dependabot-managed) is shown.
+export function renderBackendTechnologies(java, modules) {
+  const rows = [`| Java ${java} | root \`pom.xml\` | — |`, '| Spring Boot (BOM) | root `pom.xml` | — |'];
+  for (const [module, deps] of Object.entries(modules)) {
+    for (const dep of deps) {
+      if (dep.groupId === 'com.storemanager') continue;
+      rows.push(`| ${dep.artifactId} | \`${module}\` | ${dep.scope} |`);
+    }
+  }
+  return ['| Technology | Module | Scope |', '|---|---|---|', ...rows].join('\n');
+}
+
+export function renderFrontendPackages(pkg) {
+  const rows = [
+    ...Object.keys(pkg.dependencies ?? {}).map((name) => `| ${name} | runtime |`),
+    ...Object.keys(pkg.devDependencies ?? {}).map((name) => `| ${name} | dev/test |`),
+  ];
+  return ['| Package | Kind |', '|---|---|', ...rows].join('\n');
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -117,27 +138,14 @@ function pomDependencies(pomPath) {
 function techBackend() {
   const rootPom = readFileSync(join(ROOT, 'pom.xml'), 'utf8');
   const java = rootPom.match(/<java\.version>(.*?)<\/java\.version>/)?.[1] ?? '?';
-  const springBoot = rootPom.match(/<spring-boot\.version>(.*?)<\/spring-boot\.version>/)?.[1] ?? '?';
-  const rows = [
-    `| Java | ${java} | root \`pom.xml\` | — |`,
-    `| Spring Boot (BOM) | ${springBoot} | root \`pom.xml\` | — |`,
-  ];
-  for (const module of ['application', 'infrastructure']) {
-    for (const dep of pomDependencies(join(ROOT, module, 'pom.xml'))) {
-      if (dep.groupId === 'com.storemanager') continue;
-      rows.push(`| ${dep.artifactId} | managed | \`${module}\` | ${dep.scope} |`);
-    }
-  }
-  return ['| Technology | Version | Module | Scope |', '|---|---|---|---|', ...rows].join('\n');
+  const modules = Object.fromEntries(
+    ['application', 'infrastructure'].map((module) => [module, pomDependencies(join(ROOT, module, 'pom.xml'))]),
+  );
+  return renderBackendTechnologies(java, modules);
 }
 
 function techFrontend() {
-  const pkg = JSON.parse(readFileSync(join(ROOT, 'frontend', 'package.json'), 'utf8'));
-  const rows = [
-    ...Object.entries(pkg.dependencies ?? {}).map(([name, version]) => `| ${name} | ${version} | runtime |`),
-    ...Object.entries(pkg.devDependencies ?? {}).map(([name, version]) => `| ${name} | ${version} | dev/test |`),
-  ];
-  return ['| Package | Version | Kind |', '|---|---|---|', ...rows].join('\n');
+  return renderFrontendPackages(JSON.parse(readFileSync(join(ROOT, 'frontend', 'package.json'), 'utf8')));
 }
 
 function backendDomains() {
