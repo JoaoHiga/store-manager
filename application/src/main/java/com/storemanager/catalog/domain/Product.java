@@ -106,6 +106,10 @@ public final class Product {
                 updatedAt);
     }
 
+    /**
+     * {@code stockQuantity} is intentionally not a parameter: editing a product never changes its stock, which
+     * only moves through atomic stock operations (sales, purchases) so concurrent changes are never undone.
+     */
     public Product withUpdatedFields(
             String name,
             String description,
@@ -113,7 +117,6 @@ public final class Product {
             String brand,
             BigDecimal costPrice,
             BigDecimal salePrice,
-            int stockQuantity,
             Instant now) {
         return new Product(
                 id, sku, name, description, categoryId, brand, costPrice, salePrice, stockQuantity, active, createdAt,

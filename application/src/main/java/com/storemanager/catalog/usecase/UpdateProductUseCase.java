@@ -16,7 +16,10 @@ public class UpdateProductUseCase {
         this.categoryRepository = categoryRepository;
     }
 
-    /** {@code sku} is intentionally not a parameter — it can never be changed through this use case. */
+    /**
+     * {@code sku} and {@code stockQuantity} are intentionally not parameters — neither can be changed through
+     * this use case. Stock only moves through atomic stock operations (sales, purchases).
+     */
     public Product execute(
             Long productId,
             String name,
@@ -24,15 +27,13 @@ public class UpdateProductUseCase {
             Long categoryId,
             String brand,
             BigDecimal costPrice,
-            BigDecimal salePrice,
-            int stockQuantity) {
+            BigDecimal salePrice) {
         Product existing =
                 productRepository.findById(productId).orElseThrow(() -> new ProductNotFoundException(productId));
         categoryRepository.findById(categoryId).orElseThrow(() -> new CategoryNotFoundException(categoryId));
 
         Product updated =
-                existing.withUpdatedFields(
-                        name, description, categoryId, brand, costPrice, salePrice, stockQuantity, Instant.now());
+                existing.withUpdatedFields(name, description, categoryId, brand, costPrice, salePrice, Instant.now());
         return productRepository.save(updated);
     }
 }

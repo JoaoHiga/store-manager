@@ -77,17 +77,19 @@ The system MUST list products, MUST support filtering by `categoryId`, and MUST 
 
 ### Requirement: Product Update
 
-The system MUST allow editing an existing product's `name` (at most 160 characters), `description` (at most 1000 characters), `brand` (at most 80 characters), `categoryId`, `costPrice` (>= 0 when present), `salePrice`, and `stockQuantity`. The system MUST NOT allow `sku` to be modified through this capability.
-(Previously: `costPrice` had no lower bound, and `name`/`brand`/`description` had no upper bound, on update.)
+The system MUST allow editing an existing product's `name` (at most 160 characters), `description` (at most 1000 characters), `brand` (at most 80 characters), `categoryId`, `costPrice` (>= 0 when present), and `salePrice`. The system MUST NOT allow `sku` or `stockQuantity` to be modified through this capability: stock is set only as the initial stock at creation and afterwards changes only through stock operations (sales, purchases). A `stockQuantity` sent on update MUST be ignored, and saving an edit MUST NOT undo a stock change made concurrently (for example, a sale recorded while the edit form was open).
+(Previously: `costPrice` had no lower bound, and `name`/`brand`/`description` had no upper bound, on update. `stockQuantity` was editable as an absolute value, which silently undid concurrent sales.)
 
-#### Scenario: Update a product's sale price and stock
+#### Scenario: Update a product's sale price
+- GIVEN an active product with `salePrice: 350`
+- WHEN it is updated with `salePrice: 320`
+- THEN the product reflects the new sale price
+
+#### Scenario: Updating a product does not change its stock
 - GIVEN an active product with `stockQuantity: 3`
-- WHEN it is updated with `salePrice: 320`, `stockQuantity: 5`
-- THEN the product reflects the new values
-
-#### Scenario: Reject an update that sets a negative stock quantity
-- WHEN an existing product is updated with `stockQuantity: -2`
-- THEN the system MUST reject the request with a validation error
+- AND a sale of 1 unit is recorded after the edit form was loaded
+- WHEN the product is updated with `salePrice: 320` (with or without a `stockQuantity` in the request)
+- THEN the product's `stockQuantity` is 2
 
 #### Scenario: Reject an update that sets a negative cost price
 - WHEN an existing product is updated with `costPrice: -1`

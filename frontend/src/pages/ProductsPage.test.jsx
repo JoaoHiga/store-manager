@@ -69,6 +69,7 @@ describe('ProductsPage', () => {
         expect.objectContaining({ name: 'iPhone 12', salePrice: 350 }),
       ),
     );
+    expect(catalogApi.updateProduct.mock.calls[0][1]).not.toHaveProperty('stockQuantity');
   });
 
   it('deactivates a product', async () => {

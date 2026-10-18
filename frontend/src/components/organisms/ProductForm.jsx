@@ -15,9 +15,12 @@ const emptyForm = {
 /**
  * Handles both create (no `initialValues`) and edit. Deliberately has no
  * `sku` field: sku can never be set/changed from the UI, matching the
- * backend contract (see product-catalog spec.md).
+ * backend contract (see product-catalog spec.md). Stock is only set as the
+ * initial stock on create; editing neither shows nor submits it, since stock
+ * only moves through sales and purchases.
  */
 export function ProductForm({ categories, initialValues, onSubmit, onCancel }) {
+  const isEditing = initialValues !== undefined;
   // Merge over emptyForm rather than using initialValues verbatim: a real
   // product from the API can have null optional fields (brand, description,
   // costPrice), and React warns on `value={null}` for a controlled input —
@@ -48,20 +51,20 @@ export function ProductForm({ categories, initialValues, onSubmit, onCancel }) {
       setError('El precio de venta tiene que ser mayor a cero');
       return;
     }
-    if (values.stockQuantity === '' || Number(values.stockQuantity) < 0) {
+    if (!isEditing && (values.stockQuantity === '' || Number(values.stockQuantity) < 0)) {
       setError('El stock no puede ser negativo');
       return;
     }
 
-    onSubmit({
+    const product = {
       name: values.name,
       description: values.description || null,
       categoryId: Number(values.categoryId),
       brand: values.brand || null,
       costPrice: values.costPrice === '' ? null : Number(values.costPrice),
       salePrice: Number(values.salePrice),
-      stockQuantity: Number(values.stockQuantity),
-    });
+    };
+    onSubmit(isEditing ? product : { ...product, stockQuantity: Number(values.stockQuantity) });
   }
 
   return (
@@ -101,13 +104,15 @@ export function ProductForm({ categories, initialValues, onSubmit, onCancel }) {
         value={values.salePrice}
         onChange={handleChange('salePrice')}
       />
-      <FormField
-        id="stockQuantity"
-        label="Stock"
-        type="number"
-        value={values.stockQuantity}
-        onChange={handleChange('stockQuantity')}
-      />
+      {!isEditing && (
+        <FormField
+          id="stockQuantity"
+          label="Stock"
+          type="number"
+          value={values.stockQuantity}
+          onChange={handleChange('stockQuantity')}
+        />
+      )}
       {error && <p role="alert">{error}</p>}
       <Button type="submit">Guardar</Button>
       {onCancel && (

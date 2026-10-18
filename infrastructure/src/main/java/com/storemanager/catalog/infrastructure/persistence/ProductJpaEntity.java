@@ -38,7 +38,12 @@ public class ProductJpaEntity {
     @Column(name = "sale_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal salePrice;
 
-    @Column(name = "stock_quantity", nullable = false)
+    /**
+     * Written only on INSERT (initial stock). After that, stock changes exclusively through atomic,
+     * conditional JPQL updates such as {@link ProductJpaRepository#decrementStockIfAvailable}; saving an
+     * entity loaded earlier (product edit, deactivate, activate) must never write back a stale stock.
+     */
+    @Column(name = "stock_quantity", nullable = false, updatable = false)
     private int stockQuantity;
 
     @Column(nullable = false)

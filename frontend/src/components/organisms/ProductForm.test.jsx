@@ -80,4 +80,36 @@ describe('ProductForm', () => {
     expect(screen.getByLabelText('Nombre')).toHaveValue('iPhone 12');
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument();
   });
+
+  it('neither shows nor submits stock when editing', async () => {
+    const onSubmit = vi.fn();
+    render(
+      <ProductForm
+        categories={categories}
+        initialValues={{
+          name: 'iPhone 12',
+          description: null,
+          categoryId: '1',
+          brand: null,
+          costPrice: null,
+          salePrice: 350,
+          stockQuantity: 3,
+        }}
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText('Stock')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      name: 'iPhone 12',
+      description: null,
+      categoryId: 1,
+      brand: null,
+      costPrice: null,
+      salePrice: 350,
+    });
+  });
 });

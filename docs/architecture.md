@@ -251,7 +251,9 @@ the API.
      - builds and saves the `Sale` (which computes its own total, so it can never disagree with its items);
      - decrements stock with a **conditional update** (`... WHERE stock_quantity >= :quantity`). If a
        concurrent sale took the stock in the meantime, the update changes nothing, the use case throws
-       `InsufficientStockException` and the whole transaction rolls back;
+       `InsufficientStockException` and the whole transaction rolls back. `stock_quantity` is mapped
+       `updatable = false` in `ProductJpaEntity`, so saving a product loaded earlier (an edit, a
+       deactivation) never writes back a stale stock over this decrement;
      - registers the `Voucher` as `PENDING`.
      All of it commits together or not at all.
    - **Phase 2, after the commit**: `IssueVoucherForSaleUseCase.issue` calls NubeFacT through
@@ -278,14 +280,11 @@ sale `CANCELLED`.
 
 Keep this list honest: add a risk when you find it, remove it in the change that fixes it.
 
-- **Editing a product overwrites its stock.** `PUT /api/products/{id}` writes the stock value from the
-  form as an absolute number. A sale recorded while the form is open is silently undone on save. Sales
-  themselves are safe (conditional update).
 - **Manual retry can race the retry job.** `POST /api/sales/{id}/retry-voucher` and `RetryPendingVouchersJob`
   do not coordinate. If both hit the same settled `PENDING` voucher at the same moment, it could be issued
   twice. Unlikely with one cashier, but there is no lock.
 - **No authentication.** Anyone who can reach the API can record and void sales.
-- **No stock entry.** Stock only goes down (sales); there is no purchase, restock or adjustment flow
-  beyond editing the product.
+- **No stock entry.** Stock only goes down (sales); there is no purchase, restock or adjustment flow.
+  Editing a product cannot change its stock (only the initial stock is set at creation).
 - **Not deployed.** CI tests but does not deploy. CORS only allows `http://localhost:5173`.
 - **Buyer name is a placeholder** on vouchers (`"Cliente <document>"`). See `odd/tasks/buyer-name-lookup.md`.

@@ -78,8 +78,7 @@ public class ProductController {
                         request.categoryId(),
                         request.brand(),
                         request.costPrice(),
-                        request.salePrice(),
-                        request.stockQuantity());
+                        request.salePrice());
         return ProductResponse.from(product);
     }
 
