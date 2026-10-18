@@ -24,7 +24,7 @@ and pushes made with `GITHUB_TOKEN` do not trigger CI, so required checks would 
 ## Tasks
 
 - [x] D1 Generator: drop dependency version columns; tests first; regenerate the doc.
-- [ ] D2 Dependabot: `groups` for minor + patch per ecosystem.
+- [x] D2 Dependabot: `groups` for minor + patch per ecosystem.
 
 ## Checks
 
@@ -36,3 +36,11 @@ and pushes made with `GITHUB_TOKEN` do not trigger CI, so required checks would 
 - D1 (route: delegated writer, 3 files incl. tests): generator renders dependency tables without versions
   (`renderBackendTechnologies`, `renderFrontendPackages`); Java version kept in the row name, Spring Boot
   version dropped. RED: test file failed to load (functions not exported); GREEN: 7/7. `--check` passes.
+- D2 (route: inline, 1 file): one `*-minor-patch` group per ecosystem; majors keep their own PR. Syntax checked
+  against docs.github.com Dependabot options reference (`groups.update-types`: patch/minor/major; `patterns`
+  supports `*`). YAML parses. Effect only visible after merge, on the next Dependabot run.
+
+## Next step
+
+Push + PR (user). After merge: ask Dependabot to recreate/rebase open PRs and confirm the architecture-doc
+check passes on them; handle #37 (Spring Boot 4) as its own feature.
