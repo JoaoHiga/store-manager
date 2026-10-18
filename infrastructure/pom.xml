@@ -71,6 +71,7 @@
             <artifactId>spring-boot-resttestclient</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Test-only: TestRestTemplate (spring-boot-resttestclient) needs RestTemplateBuilder from this module. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-restclient</artifactId>

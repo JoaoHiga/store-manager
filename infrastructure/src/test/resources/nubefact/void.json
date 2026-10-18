@@ -1,0 +1,7 @@
+{
+  "operacion": "generar_anulacion",
+  "tipo_de_comprobante": 2,
+  "serie": "BBB1",
+  "numero": 1,
+  "motivo": "Anulacion por error de digitacion"
+}

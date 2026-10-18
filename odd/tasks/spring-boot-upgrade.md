@@ -67,7 +67,19 @@ The Spring Boot 4.0 migration guide also lists `@MockBean` removal (use `@Mockit
 - S3c (route: inline, mechanical): `architecture.md` regenerated + hand-written stack lines (webmvc, flyway
   starter, JUnit Jupiter); removed the stale `api.version` CI comment; `start-backend.sh` and pom/test
   comments no longer name old versions. `bash -n`, YAML parse, `architecture-doc.mjs --check` pass.
+- Review of `origin/main..f2c7191` (high, granted, 4 lenses approved, acknowledged). Two lenses warned that
+  NubeFacT request JSON under Jackson 3 was unproved: the adapter test never asserted request bodies, and the
+  backend E2E mocks `InvoicingProvider`. The earlier note that S3b proved Jackson 3 end to end was overstated
+  for this outbound path.
+- S3d (route: delegated writer, failed mid-run; parent verified): 6 goldens in
+  `infrastructure/src/test/resources/nubefact/` (boleta, boleta without buyer document, factura, credit note,
+  status, void), asserted with `JsonCompareMode.STRICT` in `NubeFactInvoicingAdapterTest`. Parent proof: the
+  same test file and goldens copied onto an `origin/main` worktree (Jackson 2) exit 0, and on this branch
+  (Jackson 3) 14/14 pass per the surefire report; mutating `moneda` in `factura.json` fails the test (then
+  restored). Gap: the test count of the main run was not captured (quiet Maven, worktree removed). Also adds
+  the pom comment for the test-scoped `spring-boot-restclient` (review R2-001).
+- Pending: one E2E run against the real NubeFacT sandbox (`.env.nubefact.local`, user-provided).
 
 ## Next step
 
-Push + PR (user); CI must pass the 5 required checks. Then mark the feature done.
+Sandbox E2E run, then push + PR (user); CI must pass the 5 required checks. Then mark the feature done.
