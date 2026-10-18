@@ -107,8 +107,11 @@ What each piece is for:
 
 - **NubeFacT** — electronic invoicing provider (OSE). Credentials come from environment variables
   (`NUBEFACT_BASE_URL`, `NUBEFACT_API_TOKEN`); locally from `.env.nubefact.local`, never committed.
-- **GitHub Actions** — `.github/workflows/e2e.yml` runs backend tests, frontend tests, full-stack E2E and
-  the architecture-doc check on every pull request and on every push to `main`. It does **not** deploy.
+- **GitHub Actions** — `.github/workflows/e2e.yml` runs backend tests, frontend lint + tests + build,
+  full-stack E2E and the architecture-doc check on every pull request and on every push to `main`. It does
+  **not** deploy. A new push to a pull request cancels its stale run; every job has a timeout.
+- **Dependabot** — `.github/dependabot.yml` opens weekly update PRs for GitHub Actions, npm (`frontend/`)
+  and Maven.
 - **Docker Compose** — `docker-compose.yml` runs the local development PostgreSQL on port 5432 with the
   same defaults as `application.yml`. How to run the whole stack locally: the root `README.md`.
 
