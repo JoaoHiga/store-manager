@@ -72,4 +72,17 @@ public interface ProductJpaRepository extends JpaRepository<ProductJpaEntity, Lo
             @Param("quantity") int quantity,
             @Param("unitCost") BigDecimal unitCost,
             @Param("now") Instant now);
+
+    /**
+     * Single-statement stock return (e.g. when a sale is cancelled): adds {@code quantity} to the current
+     * row's stock without touching {@code costPrice}, regardless of whether the product is active or inactive.
+     * Returns 0 when the product does not exist.
+     */
+    @Transactional
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(
+            "UPDATE ProductJpaEntity p SET p.stockQuantity = p.stockQuantity + :quantity, p.updatedAt = :now"
+                    + " WHERE p.id = :productId")
+    int incrementStock(
+            @Param("productId") Long productId, @Param("quantity") int quantity, @Param("now") Instant now);
 }

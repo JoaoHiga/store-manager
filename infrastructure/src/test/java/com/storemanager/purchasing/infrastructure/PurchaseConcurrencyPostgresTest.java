@@ -343,6 +343,11 @@ class PurchaseConcurrencyPostgresTest {
         public boolean incrementStockAndAverageCost(Long productId, int quantity, BigDecimal unitCost, Instant now) {
             return delegate.incrementStockAndAverageCost(productId, quantity, unitCost, now);
         }
+
+        @Override
+        public boolean incrementStock(Long productId, int quantity, Instant now) {
+            return delegate.incrementStock(productId, quantity, now);
+        }
     }
 
     private static void sleep(long millis) {

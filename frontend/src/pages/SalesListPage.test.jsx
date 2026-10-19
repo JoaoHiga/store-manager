@@ -9,11 +9,14 @@ vi.mock('../api/salesApi');
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <SalesListPage />
-    </QueryClientProvider>,
-  );
+  return {
+    queryClient,
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <SalesListPage />
+      </QueryClientProvider>,
+    ),
+  };
 }
 
 afterEach(() => {
@@ -69,13 +72,14 @@ describe('SalesListPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('NubeFacT rechazó el comprobante');
   });
 
-  it('voids an accepted sale after confirming a reason and updates the row', async () => {
+  it('voids an accepted sale after confirming a reason, updates the row, and invalidates products', async () => {
     salesApi.listSales.mockResolvedValue([
       { id: 1, buyerDocumentType: 'RUC', buyerDocumentNumber: '20123456789', total: 500, status: 'COMPLETED', voucherStatus: 'ACCEPTED' },
     ]);
     salesApi.voidSale.mockResolvedValue({ id: 1, status: 'CANCELLED' });
     vi.spyOn(window, 'prompt').mockReturnValue('Cliente se arrepintió');
-    renderPage();
+    const { queryClient } = renderPage();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
 
     await screen.findByText('Aceptado');
     // Only Anular applies to an ACCEPTED voucher.
@@ -86,6 +90,7 @@ describe('SalesListPage', () => {
     expect(await screen.findByText('Anulado')).toBeInTheDocument();
     expect(screen.getByText('CANCELLED')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Anular' })).not.toBeInTheDocument();
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['products'] });
   });
 
   it('does not void when the reason prompt is cancelled', async () => {

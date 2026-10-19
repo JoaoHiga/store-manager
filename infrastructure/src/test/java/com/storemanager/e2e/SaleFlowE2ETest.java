@@ -159,13 +159,14 @@ class SaleFlowE2ETest {
     }
 
     @Test
-    void voidingAnAcceptedSaleTransitionsItToCancelled() {
+    void voidingAnAcceptedSaleTransitionsItToCancelledAndRestoresStock() {
         Mockito.when(invoicingProvider.issueBoleta(ArgumentMatchers.any(VoucherRequest.class)))
                 .thenReturn(acceptedVoucher());
         Mockito.when(invoicingProvider.voidVoucher(ArgumentMatchers.eq("B001-1"), ArgumentMatchers.anyString()))
                 .thenReturn(new IssuedVoucher(true, "B001-1", "ANULADA", "0", "hash", "pdf", "xml", "cdr"));
 
         Long saleId = recordSale("BOLETA", "DNI", "12345678");
+        assertThat(currentProductStock()).isEqualTo(9);
 
         ResponseEntity<Map> voidResponse =
                 restTemplate.postForEntity(
@@ -173,6 +174,18 @@ class SaleFlowE2ETest {
 
         assertThat(voidResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(voidResponse.getBody().get("status")).isEqualTo("CANCELLED");
+        assertThat(currentProductStock()).isEqualTo(10);
+    }
+
+    private int currentProductStock() {
+        ResponseEntity<List> products = restTemplate.getForEntity("/api/products", List.class);
+        Map<String, Object> product =
+                ((List<Map<String, Object>>) products.getBody())
+                        .stream()
+                                .filter(candidate -> productId.equals(((Number) candidate.get("id")).longValue()))
+                                .findFirst()
+                                .orElseThrow();
+        return ((Number) product.get("stockQuantity")).intValue();
     }
 
     /**

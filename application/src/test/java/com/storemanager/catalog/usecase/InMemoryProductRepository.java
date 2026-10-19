@@ -97,4 +97,19 @@ class InMemoryProductRepository implements ProductRepositoryPort {
                         stock + quantity, product.isActive(), product.getCreatedAt(), now));
         return true;
     }
+
+    @Override
+    public boolean incrementStock(Long productId, int quantity, Instant now) {
+        Optional<Product> current = findById(productId);
+        if (current.isEmpty()) {
+            return false;
+        }
+        Product product = current.get();
+        save(
+                Product.reconstitute(
+                        product.getId(), product.getSku(), product.getName(), product.getDescription(),
+                        product.getCategoryId(), product.getBrand(), product.getCostPrice(), product.getSalePrice(),
+                        product.getStockQuantity() + quantity, product.isActive(), product.getCreatedAt(), now));
+        return true;
+    }
 }
