@@ -1,6 +1,6 @@
 # Feature: Spring Boot upgrade path
 
-Status: **in progress**. S1+S2 delivered in PR #54. S3 done on branch `chore/spring-boot-4`, not pushed.
+Status: **done** (2026-10-18). Delivered in PR #54 (Spring Boot 3.5.16, Dependabot holds Boot majors) and PR #55 (Spring Boot 4.1.1, merge `4e0bcb0`).
 
 ## Objective
 
@@ -97,7 +97,4 @@ The Spring Boot 4.0 migration guide also lists `@MockBean` removal (use `@Mockit
   that is the expected boleta flow (daily summary) or something else. BBB1 enforces a 200-correlative window
   above the last registered number; FFF1 accepted 900000. Side effect: the sandbox FFF1 series now ends at
   900000.
-
-## Next step
-
-Sandbox E2E run, then push + PR (user); CI must pass the 5 required checks. Then mark the feature done.
+- 2026-10-18: **CLOSED.** Delivered in PR #54 (Spring Boot 3.5.16, Dependabot holds Boot majors) and PR #55 (Spring Boot 4.1.1, merge `4e0bcb0`); CI 5/5 green on the PR.
