@@ -56,7 +56,9 @@ class SalesInvoicingFlowTest {
                 new RetryPendingVoucherUseCase(voucherRepository, saleRepository, invoicingProvider);
         retrySaleVoucherUseCase = new RetrySaleVoucherUseCase(voucherRepository, retryPendingVoucherUseCase);
         VoidSaleUseCase voidSaleUseCase = new VoidSaleUseCase(voucherRepository, invoicingProvider);
-        cancelSaleUseCase = new CancelSaleUseCase(voidSaleUseCase, saleRepository);
+        cancelSaleUseCase =
+                new CancelSaleUseCase(
+                        voidSaleUseCase, saleRepository, productRepository, new RecordingTransactionRunner());
 
         productId =
                 productRepository
@@ -119,15 +121,17 @@ class SalesInvoicingFlowTest {
     }
 
     @Test
-    void voidFlowViaTheSaleScopedUseCaseVoidsTheVoucherAndCancelsTheSaleWithoutDeletingEither() {
+    void voidFlowViaTheSaleScopedUseCaseVoidsTheVoucherCancelsTheSaleAndRestoresStockWithoutDeletingEither() {
         invoicingProvider.alwaysAccept();
         Sale sale = recordASale();
+        assertThat(productRepository.findById(productId).orElseThrow().getStockQuantity()).isEqualTo(9);
 
         Sale cancelled = cancelSaleUseCase.execute(sale.getId(), "Cliente solicito anulacion");
 
         assertThat(cancelled.getStatus()).isEqualTo(SaleStatus.CANCELLED);
         Voucher voided = voucherRepository.findBySaleId(sale.getId()).orElseThrow();
         assertThat(voided.getStatus()).isEqualTo(VoucherStatus.VOIDED);
+        assertThat(productRepository.findById(productId).orElseThrow().getStockQuantity()).isEqualTo(10);
         assertThat(saleRepository.findById(sale.getId())).isPresent();
         assertThat(voucherRepository.findBySaleId(sale.getId())).isPresent();
     }

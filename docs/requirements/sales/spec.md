@@ -73,14 +73,14 @@ The system MUST allow listing sales, optionally filtered by status, and MUST all
 
 ### Requirement: Void a Sale
 
-The system MUST allow voiding a sale only when its voucher's status is `ACCEPTED`. Voiding MUST NOT delete the sale or voucher records; both transition to a cancelled/voided state, preserving the audit trail.
+The system MUST allow voiding a sale only when its voucher's status is `ACCEPTED`. Voiding MUST NOT delete the sale or voucher records; both transition to a cancelled/voided state, preserving the audit trail. Once the invoicing provider confirms the void, transitioning the sale to `CANCELLED` and restoring each sold product's `stockQuantity` by the sold `quantity` MUST happen atomically (regardless of whether a product was deactivated after the sale, and without altering its `costPrice`).
 
 #### Scenario: Void a completed sale with an accepted voucher
 - GIVEN a completed sale whose voucher status is `ACCEPTED`
 - WHEN the sale is voided
-- THEN the sale's status becomes `CANCELLED` and the voucher's status becomes `VOIDED`, with both rows still present
+- THEN the sale's status becomes `CANCELLED`, the voucher's status becomes `VOIDED` (with both rows still present), and each referenced product's `stockQuantity` is incremented by the sold quantity
 
 #### Scenario: Reject voiding a sale with a pending voucher
 - GIVEN a completed sale whose voucher status is `PENDING`
 - WHEN voiding that sale is attempted
-- THEN the system MUST reject the request with a validation error
+- THEN the system MUST reject the request with a validation error, and neither the sale status nor product stock is changed

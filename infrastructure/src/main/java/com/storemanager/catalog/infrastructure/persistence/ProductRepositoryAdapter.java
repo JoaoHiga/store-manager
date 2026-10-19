@@ -69,6 +69,11 @@ public class ProductRepositoryAdapter implements ProductRepositoryPort {
         return jpaRepository.incrementStockAndAverageCost(productId, quantity, unitCost, now) == 1;
     }
 
+    @Override
+    public boolean incrementStock(Long productId, int quantity, Instant now) {
+        return jpaRepository.incrementStock(productId, quantity, now) == 1;
+    }
+
     private String generateSku() {
         return "PRD-%06d".formatted(jpaRepository.nextSkuSequenceValue());
     }

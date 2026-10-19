@@ -236,4 +236,22 @@ class ProductRepositoryAdapterTest {
         assertThat(saved.getStockQuantity()).isEqualTo(4);
         assertThat(saved.getCostPrice()).isEqualByComparingTo("312.00");
     }
+
+    @Test
+    void incrementsStockForActiveAndInactiveProductsWithoutChangingCost() {
+        Product active = productWith("300.00", 3);
+        Product inactive = adapter.save(productWith("200.00", 1).deactivated(Instant.now()));
+
+        assertThat(adapter.incrementStock(active.getId(), 2, Instant.now())).isTrue();
+        assertThat(adapter.incrementStock(inactive.getId(), 4, Instant.now())).isTrue();
+        assertThat(adapter.incrementStock(999_999L, 1, Instant.now())).isFalse();
+
+        Product reloadedActive = adapter.findById(active.getId()).orElseThrow();
+        assertThat(reloadedActive.getStockQuantity()).isEqualTo(5);
+        assertThat(reloadedActive.getCostPrice()).isEqualByComparingTo("300.00");
+
+        Product reloadedInactive = adapter.findById(inactive.getId()).orElseThrow();
+        assertThat(reloadedInactive.getStockQuantity()).isEqualTo(5);
+        assertThat(reloadedInactive.getCostPrice()).isEqualByComparingTo("200.00");
+    }
 }

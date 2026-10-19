@@ -299,8 +299,8 @@ same transaction acts as a **transactional outbox**: a durable record of work st
 world, drained by the retry job.
 
 Other flows follow the same shape: page → API client → controller → use case → ports → adapters.
-Voiding a sale (`POST /api/sales/{id}/void`) asks NubeFacT to void the voucher, marks it `VOIDED` and the
-sale `CANCELLED`.
+Voiding a sale (`POST /api/sales/{id}/void`) asks NubeFacT to void the voucher, marks it `VOIDED`, and in one
+transaction marks the sale `CANCELLED` and adds the sold quantities back to each product's stock.
 
 ### Recording a purchase
 
@@ -347,11 +347,11 @@ Keep this list honest: add a risk when you find it, remove it in the change that
   do not coordinate. If both hit the same settled `PENDING` voucher at the same moment, it could be issued
   twice. Unlikely with one cashier, but there is no lock.
 - **No authentication.** Anyone who can reach the API can record and void sales.
-- **Stock only moves through sales and purchases.** Purchases bring stock in (and recompute cost price), but
-  there is no manual adjustment (shrinkage, physical counts) and no stock-movement ledger, so the current
-  stock cannot be explained movement by movement. Cancelling a sale does not restore its stock
-  (`CancelSaleUseCase`). Editing a product cannot change its stock or its cost price; a cost entered
-  wrong at creation can only be corrected by later purchases.
+- **Stock only moves through sales and purchases.** Purchases bring stock in (and recompute cost price), and
+  voiding a sale returns its units, but there is no manual adjustment (shrinkage, physical counts) and no
+  stock-movement ledger, so the current stock cannot be explained movement by movement. Editing a product
+  cannot change its stock or its cost price; a cost entered wrong at creation can only be corrected by later
+  purchases.
 - **Purchases cannot be voided or corrected.** A wrong purchase can only be offset by hand.
 - **Cost price is invisible in the UI.** It is set at product creation and then only by purchases, but no
   page shows it (`ProductList.jsx` has no cost column), so the weighted average can only be checked through

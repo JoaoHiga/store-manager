@@ -127,8 +127,13 @@ public class UseCaseConfiguration {
     }
 
     @Bean
-    public CancelSaleUseCase cancelSaleUseCase(VoidSaleUseCase voidSaleUseCase, SaleRepositoryPort saleRepositoryPort) {
-        return new CancelSaleUseCase(voidSaleUseCase, saleRepositoryPort);
+    public CancelSaleUseCase cancelSaleUseCase(
+            VoidSaleUseCase voidSaleUseCase,
+            SaleRepositoryPort saleRepositoryPort,
+            ProductRepositoryPort productRepositoryPort,
+            TransactionRunner transactionRunner) {
+        return new CancelSaleUseCase(
+                voidSaleUseCase, saleRepositoryPort, productRepositoryPort, transactionRunner);
     }
 
     @Bean

@@ -39,4 +39,11 @@ public interface ProductRepositoryPort {
      * inactive at the moment of the update.
      */
     boolean incrementStockAndAverageCost(Long productId, int quantity, BigDecimal unitCost, Instant now);
+
+    /**
+     * Atomically adds {@code quantity} back to the product's stock (for example when a completed sale is
+     * cancelled), regardless of whether the product is currently active or inactive, without changing its
+     * {@code costPrice}. Returns {@code false}, changing nothing, when the product does not exist.
+     */
+    boolean incrementStock(Long productId, int quantity, Instant now);
 }

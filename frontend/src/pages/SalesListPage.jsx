@@ -75,6 +75,7 @@ export function SalesListPage() {
       // The void endpoint only ever succeeds by transitioning ACCEPTED -> VOIDED,
       // so this is safe to assume even though SaleResponse itself omits it.
       patchSale(id, { status: sale.status, voucherStatus: 'VOIDED' });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
     onError: (mutationError) => setActionError(mutationError.message),
   });
