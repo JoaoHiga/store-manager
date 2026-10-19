@@ -5,7 +5,16 @@ import { ProductList } from './ProductList';
 
 const categories = [{ id: 1, name: 'Celulares' }];
 const products = [
-  { id: 1, sku: 'PRD-000001', name: 'iPhone 12', categoryId: 1, salePrice: 350, stockQuantity: 3, active: true },
+  {
+    id: 1,
+    sku: 'PRD-000001',
+    name: 'iPhone 12',
+    categoryId: 1,
+    costPrice: 300,
+    salePrice: 350,
+    stockQuantity: 3,
+    active: true,
+  },
 ];
 
 function renderList(overrides = {}) {
@@ -28,12 +37,27 @@ describe('ProductList', () => {
     expect(screen.getByText('No hay productos todavía.')).toBeInTheDocument();
   });
 
-  it('renders each product with its resolved category name', () => {
+  it('renders each product with its resolved category name, cost price and sale price', () => {
     renderList();
 
+    expect(screen.getByRole('columnheader', { name: 'Costo' })).toBeInTheDocument();
     expect(screen.getByText('PRD-000001')).toBeInTheDocument();
     expect(screen.getByText('iPhone 12')).toBeInTheDocument();
     expect(screen.getByText('Celulares')).toBeInTheDocument();
+    expect(screen.getByText(/300,00/)).toBeInTheDocument();
+    expect(screen.getByText(/350,00/)).toBeInTheDocument();
+  });
+
+  it('renders a dash when a product has no cost price', () => {
+    renderList({ products: [{ ...products[0], costPrice: null }] });
+
+    const headers = screen.getAllByRole('columnheader').map((header) => header.textContent);
+    const costIndex = headers.indexOf('Costo');
+    const row = screen.getByRole('row', { name: /iPhone 12/ });
+    const cells = row.querySelectorAll('td');
+
+    expect(costIndex).toBeGreaterThanOrEqual(0);
+    expect(cells[costIndex]).toHaveTextContent('—');
   });
 
   it('calls onEdit with the product when Editar is clicked', async () => {

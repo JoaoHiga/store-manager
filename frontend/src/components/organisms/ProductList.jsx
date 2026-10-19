@@ -18,6 +18,7 @@ export function ProductList({ products, categories, onEdit, onDeactivate, onActi
           <th>SKU</th>
           <th>Nombre</th>
           <th>Categoría</th>
+          <th>Costo</th>
           <th>Precio</th>
           <th>Stock</th>
           <th>Estado</th>
@@ -30,6 +31,13 @@ export function ProductList({ products, categories, onEdit, onDeactivate, onActi
             <td>{product.sku}</td>
             <td>{product.name}</td>
             <td>{categoryName(product.categoryId)}</td>
+            <td>
+              {product.costPrice !== null && product.costPrice !== undefined ? (
+                <PriceTag amount={product.costPrice} />
+              ) : (
+                '—'
+              )}
+            </td>
             <td>
               <PriceTag amount={product.salePrice} />
             </td>
