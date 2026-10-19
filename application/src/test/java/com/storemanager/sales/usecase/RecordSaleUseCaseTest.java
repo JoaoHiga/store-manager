@@ -45,7 +45,7 @@ class RecordSaleUseCaseTest {
     }
 
     @Test
-    void recordsAValidSaleSnapshottingPriceAndDescriptionAndComputingTheTotal() {
+    void recordsAValidSaleSnapshottingPriceAndProductNameAndComputingTheTotal() {
         Sale sale =
                 useCase.execute(
                         List.of(new SaleLineItemRequest(activeProduct.getId(), 1)), "DNI", "12345678",
@@ -56,7 +56,22 @@ class RecordSaleUseCaseTest {
         assertThat(sale.getTotal()).isEqualByComparingTo("350");
         assertThat(sale.getItems()).hasSize(1);
         assertThat(sale.getItems().get(0).getUnitPrice()).isEqualByComparingTo("350");
-        assertThat(sale.getItems().get(0).getDescription()).isEqualTo("Usado, buen estado");
+        assertThat(sale.getItems().get(0).getDescription()).isEqualTo("iPhone 12");
+    }
+
+    @Test
+    void snapshotsTheProductNameAsTheLineDescriptionWhenTheProductHasNoDescription() {
+        Product withoutDescription =
+                productRepository.save(
+                        Product.createNew(
+                                "Funda", null, 1L, null, null, new BigDecimal("19.90"), 10, Instant.now()));
+
+        Sale sale =
+                useCase.execute(
+                        List.of(new SaleLineItemRequest(withoutDescription.getId(), 1)), null, null,
+                        VoucherType.BOLETA);
+
+        assertThat(sale.getItems().get(0).getDescription()).isEqualTo("Funda");
     }
 
     @Test

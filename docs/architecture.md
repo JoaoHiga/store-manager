@@ -166,7 +166,7 @@ The backend is split into four business domains. Each one has the same internal 
 | Domain | Domain model (`domain/`) | Ports (`domain/port/`) | Use cases (`usecase/`) | Infrastructure (files) |
 |---|---|---|---|---|
 | `catalog` | `Category`, `Product` | `CategoryRepositoryPort`, `ProductRepositoryPort` | `CreateCategoryUseCase`, `CreateProductUseCase`, `DeactivateProductUseCase`, `ListCategoriesUseCase`, `ListProductsUseCase`, `ReactivateProductUseCase`, `UpdateProductUseCase` | `config/ (2)`, `persistence/ (7)`, `web/ (8)` |
-| `invoicing` | `Voucher`, `VoucherStatus`, `VoucherType` | `InvoicingProvider`, `VoucherRepositoryPort` | `IssueVoucherForSaleUseCase`, `RetryPendingVoucherUseCase`, `VoidSaleUseCase` | `config/ (1)`, `nubefact/ (9)`, `persistence/ (5)`, `scheduling/ (1)` |
+| `invoicing` | `Voucher`, `VoucherStatus`, `VoucherType` | `InvoicingProvider`, `VoucherRepositoryPort` | `IssueVoucherForSaleUseCase`, `RetryPendingVoucherUseCase`, `VoidSaleUseCase` | `config/ (1)`, `nubefact/ (10)`, `persistence/ (5)`, `scheduling/ (1)` |
 | `purchasing` | `Purchase`, `PurchaseItem`, `Supplier` | `PurchaseRepositoryPort`, `SupplierRepositoryPort` | `CreateSupplierUseCase`, `DeactivateSupplierUseCase`, `GetPurchaseUseCase`, `ListPurchasesUseCase`, `ListSuppliersUseCase`, `ReactivateSupplierUseCase`, `RecordPurchaseUseCase` | `persistence/ (7)`, `web/ (10)` |
 | `sales` | `BuyerDocumentValidator`, `Sale`, `SaleItem`, `SaleStatus` | `SaleRepositoryPort` | `CancelSaleUseCase`, `GetSaleUseCase`, `ListSalesUseCase`, `RecordSaleUseCase`, `RetrySaleVoucherUseCase` | `persistence/ (4)`, `web/ (7)` |
 | `shared` | `RucValidator` | `TransactionRunner` | — | `transaction/ (1)` |
@@ -339,11 +339,6 @@ duplicate-invoice rejection.
 
 Keep this list honest: add a risk when you find it, remove it in the change that fixes it.
 
-- **A voucher line can reach NubeFacT with a blank `descripcion`.** Found on 2026-10-18 running the E2E
-  against the NubeFacT sandbox: a sale of a product created without a `description` was rejected with
-  code 21 (`Item - descripcion no puede estar en blanco`, node `cac:Item/cbc:Description`). The adapter only
-  checks the maximum length (`validateLineItems`). The exact source of the blank value (`SaleItem` description
-  snapshot) is not confirmed yet. Pre-existing: unrelated to the Spring Boot 4 upgrade.
 - **E2E reruns against the NubeFacT sandbox collide on voucher numbers.** Each E2E run starts with a fresh
   database, so correlatives restart at 1, while the sandbox keeps the numbers already issued; NubeFacT answers
   code 23 (`Este documento ya existe`). The E2E does not assert NubeFacT acceptance, so this stays silent.

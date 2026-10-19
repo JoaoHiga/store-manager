@@ -245,7 +245,10 @@ public class NubeFactInvoicingAdapter implements InvoicingProvider {
     private void validateLineItems(List<VoucherLineItem> lineItems) {
         for (VoucherLineItem item : lineItems) {
             String description = item.description();
-            if (description != null && description.length() > MAX_DESCRIPTION_LENGTH) {
+            if (description == null || description.isBlank()) {
+                throw new InvoiceFieldBlankException("descripcion");
+            }
+            if (description.length() > MAX_DESCRIPTION_LENGTH) {
                 throw new InvoiceFieldTooLongException("descripcion", MAX_DESCRIPTION_LENGTH, description.length());
             }
         }

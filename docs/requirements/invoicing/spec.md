@@ -89,7 +89,11 @@ The system MUST allow voiding an `ACCEPTED` voucher by issuing a comunicación d
 
 ### Requirement: Outbound Field Validation
 
-Before sending a request to the configured OSE, the system MUST validate each field against that provider's documented limits (e.g. item description length) and MUST reject the request locally with a clear reason instead of sending a request known to be invalid.
+Before sending a request to the configured OSE, the system MUST validate each field against that provider's documented requirements and limits (e.g. non-blank item description and maximum length) and MUST reject the request locally with a clear reason instead of sending a request known to be invalid.
+
+#### Scenario: Reject a blank item description before calling the provider
+- WHEN a voucher line item's description is null or blank
+- THEN the system MUST reject the request with a validation error, and MUST NOT call the invoicing provider
 
 #### Scenario: Reject an over-length item description before calling the provider
 - WHEN a sale's line item description exceeds the invoicing provider's documented maximum length

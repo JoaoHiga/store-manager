@@ -20,7 +20,7 @@ import java.util.Map;
  * <p><b>Phase 1, one transaction</b> ({@link TransactionRunner}): validate that every referenced product
  * exists, is active and has enough stock (quantities summed per product across lines, so two lines for the
  * same product cannot jointly oversell); save the {@link Sale}, snapshotting each product's current price
- * and description onto its {@link SaleItem}; decrement stock with a conditional update; and register the
+ * and name onto its {@link SaleItem}; decrement stock with a conditional update; and register the
  * voucher as {@code PENDING}. All of it commits together or not at all, so there is never a sale without its
  * stock decremented or without its voucher. The conditional decrement is the real stock guard: the earlier
  * availability check only produces a precise error message, and a concurrent sale that takes the stock in
@@ -128,7 +128,7 @@ public class RecordSaleUseCase {
     }
 
     private SaleItem toSaleItem(SaleLineItemRequest line, Product product) {
-        return SaleItem.createNew(product.getId(), product.getDescription(), product.getSalePrice(), line.quantity());
+        return SaleItem.createNew(product.getId(), product.getName(), product.getSalePrice(), line.quantity());
     }
 
     private record RecordedSale(Sale sale, Voucher pendingVoucher) {}
