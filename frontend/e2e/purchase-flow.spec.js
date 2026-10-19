@@ -101,15 +101,18 @@ test.describe('supplier -> purchase -> stock and cost (Phase B, full stack)', ()
     const purchaseRow = purchases.getByRole('row', { name: new RegExp(invoiceNumber) });
     await expect(purchaseRow.getByRole('cell')).toHaveText([purchaseDate, supplierName, invoiceNumber, '1', 'S/ 650.00']);
 
-    // The success handler invalidates products, so the products page shows the raised stock.
-    // Asserts the Stock cell itself, located by its header, so a price or SKU containing "15" cannot match.
+    // The success handler invalidates products, so the products page shows the raised stock and averaged cost.
+    // Asserts the Costo and Stock cells located by their headers.
     const products = sectionTitled(page, 'Productos');
+    await expect(products.getByRole('columnheader', { name: 'Costo', exact: true })).toBeVisible();
     await expect(products.getByRole('columnheader', { name: 'Stock', exact: true })).toBeVisible();
-    const stockColumn = (await products.getByRole('columnheader').allTextContents()).indexOf('Stock');
+    const headers = await products.getByRole('columnheader').allTextContents();
+    const costColumn = headers.indexOf('Costo');
+    const stockColumn = headers.indexOf('Stock');
     const productRow = products.getByRole('row', { name: new RegExp(product.name) });
+    await expect(productRow.getByRole('cell').nth(costColumn)).toContainText('110,00');
     await expect(productRow.getByRole('cell').nth(stockColumn)).toHaveText('15');
 
-    // Cost price is not shown in the UI; the backend is the source of truth for the average.
     const updatedProduct = await fetchProduct(request, product.categoryId, product.id);
     expect(updatedProduct.stockQuantity).toBe(15);
     expect(Number(updatedProduct.costPrice)).toBe(110);

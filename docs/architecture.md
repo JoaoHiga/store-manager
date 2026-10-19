@@ -329,7 +329,7 @@ injected `java.time.Clock` (system UTC in `UseCaseConfiguration`) and reads "tod
 
 On the frontend, **`PurchasesPage.jsx`** offers only active suppliers and products, submits through
 `recordPurchase()` (`frontend/src/api/purchasingApi.js`), and on success invalidates both the `purchases`
-and the `products` queries, so the purchase list and the products page (stock) refresh together. A backend
+and the `products` queries, so the purchase list and the products page (stock and cost price) refresh together. A backend
 error (for example the `409` for a duplicate supplier invoice) is shown as-is and the form keeps its
 values. `frontend/e2e/purchase-flow.spec.js` drives this whole path through a real browser: supplier
 creation, a recorded purchase in the list, the raised stock and the weighted-average cost, and the
@@ -353,9 +353,6 @@ Keep this list honest: add a risk when you find it, remove it in the change that
   cannot change its stock or its cost price; a cost entered wrong at creation can only be corrected by later
   purchases.
 - **Purchases cannot be voided or corrected.** A wrong purchase can only be offset by hand.
-- **Cost price is invisible in the UI.** It is set at product creation and then only by purchases, but no
-  page shows it (`ProductList.jsx` has no cost column), so the weighted average can only be checked through
-  `GET /api/products`.
 - **Backend error messages reach the UI in English.** The API clients show the backend `message` verbatim
   (for example "A purchase with invoice number ... already exists for supplier <id>"), inside a Spanish UI,
   and with internal ids instead of names.
