@@ -288,6 +288,27 @@ class NubeFactInvoicingAdapterTest {
     }
 
     @Test
+    void issueBoletaRejectsBlankDescriptionBeforeCallingProvider() {
+        VoucherLineItem blank = new VoucherLineItem("   ", BigDecimal.TEN, 1, BigDecimal.TEN);
+        VoucherRequest request = new VoucherRequest("DNI", "45678912", List.of(blank), BigDecimal.TEN);
+
+        // No expectation registered on `server`, as in the over-length test above.
+        assertThatThrownBy(() -> adapter.issueBoleta(request))
+                .isInstanceOf(InvoiceFieldBlankException.class)
+                .hasMessageContaining("descripcion");
+    }
+
+    @Test
+    void issueBoletaRejectsNullDescriptionBeforeCallingProvider() {
+        VoucherLineItem missing = new VoucherLineItem(null, BigDecimal.TEN, 1, BigDecimal.TEN);
+        VoucherRequest request = new VoucherRequest("DNI", "45678912", List.of(missing), BigDecimal.TEN);
+
+        assertThatThrownBy(() -> adapter.issueBoleta(request))
+                .isInstanceOf(InvoiceFieldBlankException.class)
+                .hasMessageContaining("descripcion");
+    }
+
+    @Test
     void issueCreditNoteMapsAcceptedResponseAndPicksSeriesFromOriginalReference() {
         CreditNoteRequest request =
                 new CreditNoteRequest(

@@ -3,9 +3,10 @@ package com.storemanager.sales.domain;
 import java.math.BigDecimal;
 
 /**
- * A single line of a {@link Sale}. {@code description} and {@code unitPrice} are a snapshot of
- * the referenced product taken at sale time (see design.md, Decision: Sale line-item pricing) —
- * they never change even if the product's own {@code description}/{@code salePrice} change later.
+ * A single line of a {@link Sale}. {@code description} (the product's name at the time of sale) and
+ * {@code unitPrice} are a snapshot of the referenced product taken at sale time (see design.md,
+ * Decision: Sale line-item pricing) — they never change even if the product's own {@code name}/{@code
+ * salePrice} change later.
  * {@code subtotal} is derived from {@code unitPrice * quantity} and enforced here, not passed in,
  * so it can never drift from the two values it's computed from.
  */

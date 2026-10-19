@@ -8,7 +8,7 @@ Record sales against the product catalog and trigger invoicing, list and view sa
 
 ### Requirement: Record a Sale
 
-The system MUST allow recording a sale with one or more line items, each referencing an existing, active `Product` by id, with `quantity` (a whole number > 0; a fractional value such as `1.5` MUST be rejected with a validation error, never truncated) and `unitPrice`/`description` snapshotted from the product at the moment of sale. The system MUST reject a sale referencing a nonexistent or inactive product, and MUST reject a sale whose requested quantity exceeds the product's current stock.
+The system MUST allow recording a sale with one or more line items, each referencing an existing, active `Product` by id, with `quantity` (a whole number > 0; a fractional value such as `1.5` MUST be rejected with a validation error, never truncated), `unitPrice` snapshotted from the product's `salePrice`, and `description` snapshotted from the product's `name` at the moment of sale. The system MUST reject a sale referencing a nonexistent or inactive product, and MUST reject a sale whose requested quantity exceeds the product's current stock.
 
 Recording a sale MUST be atomic: the sale, the decrement of each product's stock and the registration of its voucher are persisted together or not at all. The stock check MUST hold under concurrency: two simultaneous sales MUST NOT both consume the same unit. The call to the invoicing provider MUST happen after that data is persisted, never while it is being written (see `invoicing`, Voucher Issuance via OSE).
 
@@ -17,7 +17,7 @@ A buyer reference (`documentType`, `documentNumber`) is required only when the s
 #### Scenario: Record a valid sale
 - GIVEN an active product "iPhone 12" with `stockQuantity: 3`
 - WHEN a sale is recorded with one line item for that product, `quantity: 1`, and a buyer with `documentType: DNI`, `documentNumber: "12345678"`
-- THEN the sale is persisted with status `COMPLETED`, a computed `total`, and the line item's `unitPrice` matching the product's `salePrice` at that moment
+- THEN the sale is persisted with status `COMPLETED`, a computed `total`, and the line item's `unitPrice` and `description` matching the product's `salePrice` and `name` at that moment
 
 #### Scenario: Reject a sale referencing an inactive product
 - GIVEN a product that has been deactivated
