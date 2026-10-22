@@ -1,6 +1,6 @@
 # Feature: cancelling a sale restores product stock
 
-Status: **in progress** on branch `fix/cancel-sale-restore-stock` (2026-10-18).
+Status: **done** (2026-10-18). Delivered in PR #59 (merge `91307a7`).
 
 ## Objective
 
@@ -55,3 +55,4 @@ In addition, `SalesListPage.jsx` updates the cached `['sales']` list on void suc
   - GREEN: `mvn clean test` (7/7 in `CancelSaleUseCaseTest`, 14/14 in `ProductRepositoryAdapterTest`, 154
     total in `infrastructure`), `npm test` (86/86), `npm run lint`, `npm run build`,
     `node scripts/architecture-doc.mjs --check`, and `npm run test:e2e` (3/3).
+- 2026-10-18: **CLOSED.** Delivered in PR #59 (merge `91307a7`); CI 5/5 green on the PR.

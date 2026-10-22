@@ -1,6 +1,6 @@
 # Feature: voucher line uses the product name
 
-Status: **in progress** on branch `fix/voucher-line-uses-product-name` (2026-10-18).
+Status: **done** (2026-10-18). Delivered in PR #58 (merge `294d19d`).
 
 ## Objective
 
@@ -52,3 +52,4 @@ required and at most 160 characters. Decided by the user on 2026-10-18.
   - GREEN: `mvn clean test` (22 tests in `RecordSaleUseCaseTest`, 16 in `NubeFactInvoicingAdapterTest`,
     153 total in `infrastructure`), `node scripts/architecture-doc.mjs --check`, and `npm run test:e2e`
     (3/3 passed).
+- 2026-10-18: **CLOSED.** Delivered in PR #58 (merge `294d19d`); CI 5/5 green on the PR.
